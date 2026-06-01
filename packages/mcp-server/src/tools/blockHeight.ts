@@ -1,5 +1,5 @@
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import { getBlockHeight } from "@bitcoin-card/data";
+import { getBlockHeight } from "../../../data/src/index.js";
 
 export function registerBlockHeight(server: McpServer): void {
   server.tool(

@@ -1,6 +1,6 @@
 import { z } from "zod";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import { getFeeHistory } from "@bitcoin-card/data";
+import { getFeeHistory } from "../../../data/src/index.js";
 
 export function registerFeeHistory(server: McpServer): void {
   server.tool(

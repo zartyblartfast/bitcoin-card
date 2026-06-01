@@ -1,5 +1,5 @@
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import { getUnminedSupply } from "@bitcoin-card/data";
+import { getUnminedSupply } from "../../../data/src/index.js";
 
 export function registerUnminedSupply(server: McpServer): void {
   server.tool(

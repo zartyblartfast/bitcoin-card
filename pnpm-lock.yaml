@@ -36,9 +36,6 @@ importers:
 
   packages/mcp-server:
     dependencies:
-      '@bitcoin-card/data':
-        specifier: workspace:*
-        version: link:../data
       '@modelcontextprotocol/sdk':
         specifier: ^1.0.0
         version: 1.29.0(zod@3.25.76)
@@ -49,6 +46,9 @@ importers:
       '@types/node':
         specifier: ^22.0.0
         version: 22.19.19
+      esbuild:
+        specifier: ^0.21.5
+        version: 0.21.5
       typescript:
         specifier: ^5.5.0
         version: 5.9.3

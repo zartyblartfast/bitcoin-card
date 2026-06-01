@@ -1,5 +1,5 @@
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import { getNetworkSummary } from "@bitcoin-card/data";
+import { getNetworkSummary } from "../../../data/src/index.js";
 
 /**
  * Convert a value to a JSON-safe form. Bitcoin difficulty exceeds 2^53, so

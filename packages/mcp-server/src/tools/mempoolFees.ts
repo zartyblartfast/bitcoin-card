@@ -1,5 +1,5 @@
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import { getMempoolFees } from "@bitcoin-card/data";
+import { getMempoolFees } from "../../../data/src/index.js";
 
 export function registerMempoolFees(server: McpServer): void {
   server.tool(
