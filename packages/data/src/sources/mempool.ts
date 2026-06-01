@@ -12,10 +12,8 @@ const FeesSchema = z.object({
   minimumFee: z.number(),
 });
 const HashrateSchema = z.object({
-  hashrate: z.number(), // H/s
-});
-const DifficultySchema = z.object({
-  difficulty: z.number(), // expected as number, then converted to bigint
+  currentHashrate: z.number(), // H/s
+  currentDifficulty: z.number(),
 });
 const BlockSchema = z.object({
   id: z.string(),
@@ -52,16 +50,32 @@ export async function fetchRecommendedFees(): Promise<SourceResult<RawMempoolFee
   return { source: "mempool", value: fees, fetchedAt: new Date().toISOString() };
 }
 
-export async function fetchHashrate(): Promise<SourceResult<number>> {
+/**
+ * Fetch the current mining stats (hashrate + difficulty) from mempool.space.
+ * The /v1/mining/hashrate/3d endpoint conveniently returns both values
+ * at the top level, so we use it for both fetchers below.
+ */
+async function fetchMiningStats(): Promise<z.infer<typeof HashrateSchema>> {
   const url = `${BASE}/v1/mining/hashrate/3d`;
-  const { hashrate } = HashrateSchema.parse(await getJson<unknown>(url));
-  return { source: "mempool", value: hashrate / 1e18, fetchedAt: new Date().toISOString() };
+  return HashrateSchema.parse(await getJson<unknown>(url));
+}
+
+export async function fetchHashrate(): Promise<SourceResult<number>> {
+  const stats = await fetchMiningStats();
+  return {
+    source: "mempool",
+    value: stats.currentHashrate / 1e18, // convert H/s to EH/s
+    fetchedAt: new Date().toISOString(),
+  };
 }
 
 export async function fetchDifficulty(): Promise<SourceResult<bigint>> {
-  const url = `${BASE}/v1/difficulty/`;
-  const { difficulty } = DifficultySchema.parse(await getJson<unknown>(url));
-  return { source: "mempool", value: BigInt(Math.round(difficulty)), fetchedAt: new Date().toISOString() };
+  const stats = await fetchMiningStats();
+  return {
+    source: "mempool",
+    value: BigInt(Math.round(stats.currentDifficulty)),
+    fetchedAt: new Date().toISOString(),
+  };
 }
 
 export async function fetchRecentBlocks(count: number): Promise<SourceResult<MempoolBlock[]>> {

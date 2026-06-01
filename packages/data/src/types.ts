@@ -27,12 +27,15 @@ export interface BlockHeightData {
   fetchedAt: string;
 }
 
-export interface MempoolFees {
+export type MempoolFeesValue = {
   fastestFee: number;
   halfHourFee: number;
   hourFee: number;
   minimumFee: number;
-  sources: SourceResult<MempoolFees>[];
+};
+
+export interface MempoolFees extends MempoolFeesValue {
+  sources: SourceResult<MempoolFeesValue>[];
   fetchedAt: string;
 }
 

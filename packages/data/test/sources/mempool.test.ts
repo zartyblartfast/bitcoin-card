@@ -58,9 +58,12 @@ describe("mempool.space source", () => {
     );
   });
 
-  it("fetchHashrate returns EH/s (divides H/s by 1e18)", async () => {
+  it("fetchHashrate returns EH/s from currentHashrate (divides H/s by 1e18)", async () => {
     vi.mocked(globalThis.fetch).mockResolvedValue(
-      new Response(JSON.stringify({ hashrate: 6.5e20 }), { status: 200 }),
+      new Response(
+        JSON.stringify({ currentHashrate: 6.5e20, currentDifficulty: 1e14 }),
+        { status: 200 },
+      ),
     );
     const result = await fetchHashrate();
     expect(result.source).toBe("mempool");
@@ -72,16 +75,19 @@ describe("mempool.space source", () => {
     );
   });
 
-  it("fetchDifficulty returns bigint from /api/v1/difficulty/", async () => {
+  it("fetchDifficulty returns bigint from currentDifficulty on the hashrate endpoint", async () => {
     vi.mocked(globalThis.fetch).mockResolvedValue(
-      new Response(JSON.stringify({ difficulty: 102_000_000_000_000 }), { status: 200 }),
+      new Response(
+        JSON.stringify({ currentHashrate: 6.5e20, currentDifficulty: 102_000_000_000_000 }),
+        { status: 200 },
+      ),
     );
     const result = await fetchDifficulty();
     expect(result.source).toBe("mempool");
     expect(typeof result.value).toBe("bigint");
     expect(result.value).toBe(102_000_000_000_000n);
     expect(globalThis.fetch).toHaveBeenCalledWith(
-      "https://mempool.space/api/v1/difficulty/",
+      "https://mempool.space/api/v1/mining/hashrate/3d",
       expect.objectContaining({ method: "GET" }),
     );
   });
