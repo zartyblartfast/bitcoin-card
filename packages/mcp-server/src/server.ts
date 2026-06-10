@@ -10,8 +10,8 @@ import { registerMarketBriefPrompt } from "./prompts/marketBrief.js";
 
 export function createServer(): McpServer {
   const server = new McpServer({
-    name: "bitcoin-card-mcp",
-    version: "0.1.0",
+    name: "bitcoin-info-mcp",
+    version: "0.1.1",
   });
 
   registerBitcoinPrice(server);
