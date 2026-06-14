@@ -190,6 +190,7 @@ The TypeScript interfaces in `packages/data/src/types.ts` are the source of trut
 | `source.name` | Source label, currently `Coin Metrics Community API`. |
 | `source.url` | Source endpoint used. |
 | `source.sourceQuality` | Currently `community-api-derived`. |
+| `history[]` | Daily valuation-risk history. Each point has `date`, `unixTs`, `mvrv`, `mvrvZScore`, `riskScore`, and `band`. |
 | `sentiment` | Optional separate Alternative.me Crypto Fear & Greed context. Not part of `riskScore`. |
 | `sentimentStatus` | `available` when `sentiment` is present; `unavailable` when sentiment fetch failed or was omitted. |
 | `sentiment.metric` | Always `crypto-fear-and-greed` when present. |
@@ -258,7 +259,7 @@ The TypeScript interfaces in `packages/data/src/types.ts` are the source of trut
 | `raw.networkSummary` | Full network summary object. |
 | `raw.mempoolFees` | Full mempool fees object. |
 | `raw.meanReversion` | BMRI object with `history` removed. |
-| `raw.bitcoinRisk` | Full Bitcoin risk object. |
+| `raw.bitcoinRisk` | Full Bitcoin risk object, including `history[]`. |
 | `fetchedAt` | Response timestamp for the DCA bundle. |
 
 ## Data caveats

@@ -68,3 +68,169 @@ export interface UnminedSupply {
   currentSupply: number;
   formula: string; // human-readable derivation
 }
+
+export type MeanReversionSourceQuality = "public-chart-scrape" | "lite-fallback";
+
+export interface MeanReversionHistoryPoint {
+  date: string;
+  price: number;
+  fullIndex: number;
+  liteIndex: number;
+  difference: number;
+}
+
+export interface MeanReversionAnchorValue {
+  name: string;
+  value: number | null;
+}
+
+export interface MeanReversionLatest extends MeanReversionHistoryPoint {
+  liteComponents: Record<string, number | null>;
+  fullAnchors: MeanReversionAnchorValue[];
+  fastIndex?: number | null;
+  slowIndex?: number | null;
+  floorIndex?: number | null;
+  ceilingIndex?: number | null;
+  indexSpread?: number | null;
+}
+
+export interface MeanReversionIndex {
+  source: {
+    full: string;
+    url: string;
+    note: string;
+    sourceQuality: MeanReversionSourceQuality;
+  };
+  methodology: {
+    lite: string;
+    liteAnchors: string[];
+    fullAnchors: string[];
+  };
+  latest: MeanReversionLatest;
+  stats: {
+    recentDays: number;
+    recentMeanAbsoluteError: number | null;
+    allDays: number;
+    allMeanAbsoluteError: number | null;
+  };
+  history: MeanReversionHistoryPoint[];
+  fetchedAt: string;
+}
+
+export type DcaMeanReversionZone =
+  | "deep_value"
+  | "value"
+  | "neutral"
+  | "warm"
+  | "expensive"
+  | "overheated";
+
+export type BitcoinRiskBand =
+  | "deep_value"
+  | "value"
+  | "neutral"
+  | "elevated"
+  | "high"
+  | "extreme";
+
+export type BitcoinRiskSourceQuality = "community-api-derived";
+export type BitcoinSentimentSourceQuality = "free-api-attribution-required";
+
+export interface BitcoinSentiment {
+  metric: "crypto-fear-and-greed";
+  value: number;
+  classification: string;
+  dataDate: string;
+  unixTs: number;
+  source: {
+    name: string;
+    url: string;
+    sourceQuality: BitcoinSentimentSourceQuality;
+  };
+  methodology: string;
+  limitations: string;
+}
+
+export interface BitcoinRiskHistoryPoint {
+  date: string;
+  unixTs: number;
+  mvrv: number;
+  mvrvZScore: number;
+  riskScore: number;
+  band: BitcoinRiskBand;
+}
+
+export interface BitcoinRisk {
+  metric: "mvrv-zscore";
+  mvrvZScore: number;
+  mvrv: number;
+  riskScore: number;
+  band: BitcoinRiskBand;
+  dataDate: string;
+  unixTs: number;
+  source: {
+    name: string;
+    url: string;
+    sourceQuality: BitcoinRiskSourceQuality;
+  };
+  history: BitcoinRiskHistoryPoint[];
+  sentiment?: BitcoinSentiment;
+  sentimentStatus: "available" | "unavailable";
+  methodology: string;
+  limitations: string;
+  fetchedAt: string;
+}
+
+export interface DcaMetrics {
+  price: {
+    value: number;
+    currency: Currency;
+    agreement: PriceData["agreement"];
+    sources: SourceResult<number>[];
+  };
+  fees: {
+    fastestFee: number;
+    halfHourFee: number;
+    hourFee: number;
+    minimumFee: number;
+  };
+  network: {
+    blockHeight: number;
+    blockHeightAgreement: BlockHeightData["agreement"];
+    hashrateEhS: number;
+    difficulty: string;
+    unminedBtc: number;
+    nextHalvingEta: string;
+  };
+  meanReversion: {
+    fullIndex: number;
+    liteIndex: number;
+    difference: number;
+    zone: DcaMeanReversionZone;
+    sourceQuality: MeanReversionSourceQuality;
+    caveat: string;
+    dataDate: string;
+  };
+  bitcoinRisk: {
+    mvrvZScore: number;
+    riskScore: number;
+    band: BitcoinRiskBand;
+    sourceQuality: BitcoinRiskSourceQuality;
+    caveat: string;
+    dataDate: string;
+    sentiment?: {
+      value: number;
+      classification: string;
+      sourceQuality: BitcoinSentimentSourceQuality;
+      caveat: string;
+      dataDate: string;
+    };
+  };
+  raw: {
+    networkSummary: NetworkSummary;
+    mempoolFees: MempoolFees;
+    meanReversion: Omit<MeanReversionIndex, "history">;
+    bitcoinRisk: BitcoinRisk;
+  };
+  fetchedAt: string;
+}

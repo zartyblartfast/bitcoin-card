@@ -5,7 +5,7 @@
 
 Trustworthy Bitcoin data for AI coding assistants, via the [Model Context Protocol](https://modelcontextprotocol.io).
 
-Cross-source price verification, mempool fees, fee history, network stats, and a pure-derivation unmined supply function. Open source. No marketing, no fluff.
+Cross-source price verification, mempool fees, fee history, network stats, a pure-derivation unmined supply function, BMRI context, and a Coin Metrics Community API-derived MVRV Z-Score risk proxy. Open source. No marketing, no fluff.
 
 ## Install (4 lines)
 
@@ -44,6 +44,9 @@ Then restart your AI client and ask: *"What's the current Bitcoin price and bloc
 | `get_fee_history` | 24h or 1w of bucketed fee data |
 | `get_network_summary` | One-shot bundle: price, height, hashrate, difficulty, unmined, halving ETA |
 | `get_unmined_supply` | Pure halving-schedule derivation with verifiable formula |
+| `get_bitcoin_risk` | Coin Metrics Community API-derived MVRV Z-Score risk proxy with local 0-100 score, band, daily cache, plus separate Alternative.me Fear & Greed sentiment when available |
+| `get_bitcoin_mean_reversion_index` | Full Checkonchain BMRI + transparent BMRI-lite comparison, delta, anchors, and caveats |
+| `get_dca_metrics` | Compact DCA-app bundle: verified price, fees, network state, BMRI zone/caveat, and Bitcoin risk proxy |
 
 Plus a reusable prompt:
 
@@ -123,6 +126,55 @@ Returns `UnminedSupply`:
 }
 ```
 
+### `get_bitcoin_risk()`
+
+Get a Bitcoin valuation-risk proxy derived from Coin Metrics Community API BTC MVRV history, plus separate Alternative.me Fear & Greed sentiment when available.
+
+Returns `BitcoinRisk` with:
+
+- `mvrvZScore` - MVRV Z-Score derived from Coin Metrics `CapMrktCurUSD` and `CapMVRVCur` daily history
+- `mvrv` - latest Coin Metrics MVRV ratio
+- `riskScore` - local 0-100 score, linearly mapped from MVRV Z-Score -0.5 to 7.0 and clamped
+- `band` - `deep_value | value | neutral | elevated | high | extreme`
+- `dataDate` / `unixTs` - latest daily close date from Coin Metrics
+- `source` / `methodology` / `limitations` - explicit attribution, derivation notes, and caveats
+- `history[]` - daily Bitcoin risk history with `date`, `unixTs`, `mvrv`, `mvrvZScore`, `riskScore`, and `band`
+- `sentiment` - optional Alternative.me Crypto Fear & Greed value/classification, returned separately and not blended into `riskScore`
+- `sentimentStatus` - `available | unavailable`; valuation risk still returns if sentiment is unavailable
+
+The Coin Metrics Community API is no-key and rate-limited at a much more usable community level than the previous provider's free endpoint. This tool still caches once per UTC day in-process because MVRV is a daily metric and because the derivation fetches full BTC market-cap/MVRV history.
+
+### `get_bitcoin_mean_reversion_index()`
+
+Get the Bitcoin Mean Reversion Index comparison.
+
+Returns `MeanReversionIndex` with:
+
+- `latest.fullIndex` - Full BMRI parsed from Checkonchain's public chart data when available
+- `latest.liteIndex` - transparent BMRI-lite approximation from 200DMA, 200WMA, and Realized Price
+- `latest.difference` - lite minus full
+- `latest.fullAnchors` - the nine Full BMRI anchors
+- `latest.liteComponents` - the lite percentile components
+- `history[]` - full/lite comparison history
+- `source.note` and `source.sourceQuality` - explicit caveat that Full BMRI is parsed from a public chart, not an official API
+
+This is intentionally labelled as a comparison, not a trading signal.
+
+### `get_dca_metrics()`
+
+Get a compact Bitcoin metrics bundle suitable for a DCA app.
+
+Returns:
+
+- verified BTC price and source agreement
+- mempool fee tiers
+- block height, hashrate, difficulty, unmined BTC, next halving ETA
+- compact BMRI market-context zone with source caveat
+- compact Coin Metrics-derived MVRV Z-Score risk proxy with risk score, band, source quality, caveat, and optional separate sentiment
+- raw supporting objects, but with BMRI history omitted to keep responses small
+
+This is intended for display/manual decision support, not automated trading.
+
 ## Why trust this widget?
 
 Trust is the product. The Bitcoin widget space is full of dubious services - single-source data, no attribution, stale caches. bitcoin-card is built around the opposite stance.
@@ -152,13 +204,18 @@ The full source is on GitHub: [github.com/zartyblartfast/bitcoin-card](https://g
 - **Coinbase** - USD/EUR/GBP spot price
 - **Kraken** - USD/EUR/GBP spot price (cross-check)
 - **Blockstream** - block height (cross-check)
+- **Checkonchain** - Full Bitcoin Mean Reversion Index public chart data (BMRI comparison; public chart scrape, not official API)
+- **Coin Metrics Community API** - BTC `CapMrktCurUSD` and `CapMVRVCur` daily history used to derive a reproducible MVRV Z-Score valuation-risk proxy
+- **Alternative.me** - optional Crypto Fear & Greed market-sentiment context; attribution required next to displayed data
 
 If any source goes down, the relevant tool degrades gracefully (returns single-source, never returns stale or made-up data) and the `agreement` flag tells the caller exactly what happened.
 
 ### Honest limits
 
 - **Fee history** for 1m/1y/2y ranges returns `partial: true` with empty points. The plan is to accumulate daily snapshots starting with v0.2.0.
-- **No caching layer in v0.1.0.** Every call hits the upstream APIs. A Cloudflare Worker aggregator with cross-region caching is planned for v0.2.0.
+- **Full BMRI uses a public Checkonchain chart scrape, not an official API.** Responses include `sourceQuality` and a caveat. BMRI-lite is the transparent fallback path.
+- **Bitcoin risk is a derived MVRV Z-Score proxy, not a proprietary composite risk index.** It uses Coin Metrics Community API daily BTC market-cap and MVRV history, derives realized cap and MVRV Z-Score locally, then caches once per UTC day in-process. Alternative.me Fear & Greed is included only as a separate sentiment field and is never blended into the valuation-risk score.
+- **No shared caching layer in v0.1.0.** Most calls hit upstream APIs directly; Bitcoin risk has only an in-process daily cache. A Cloudflare Worker aggregator with cross-region caching is planned for v0.2.0.
 - **No signed responses in v0.1.0.** v0.2.0 will add HMAC-signed responses for embedders who want zero-trust in our CDN.
 
 ## Architecture
@@ -198,7 +255,7 @@ bitcoin-card/
     plans/                  # Implementation plans
 ```
 
-Tests: 65 unit + 4 gated integration tests in the data package, 8 e2e MCP protocol tests in this package. All run via Vitest.
+Tests: 67 unit + 4 gated integration tests in the data package, 11 e2e MCP protocol tests in this package. All run via Vitest.
 
 ## License
 
