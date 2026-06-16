@@ -76,6 +76,26 @@ Includes:
 
 Use this endpoint for general Bitcoin metrics screens.
 
+### `GET /api/bitcoin-risk`
+
+Returns the Bitcoin Risk composite payload:
+
+```bash
+curl http://127.0.0.1:8787/api/bitcoin-risk
+```
+
+Includes:
+
+- `metric`: `bitcoin-risk-composite`.
+- `riskScore`: 0-100 composite score.
+- `band`: `deep_value`, `value`, `neutral`, `elevated`, `high`, or `extreme`.
+- `components`: MVRV-Z-derived valuation, Puell-style issuance multiple, Mayer Multiple, and 200WMA distance.
+- `history`: daily history for charting.
+- `sentiment`: optional separate Alternative.me Fear & Greed context.
+- `limitations`: caveat that this is not Cowen Risk, not Glassnode-equivalent, and not a trading signal.
+
+Use this endpoint for risk cards, component charts, and visual sanity-checking against BMRI.
+
 ### `GET /api/bmri-comparison`
 
 Returns the Bitcoin Mean Reversion Index payload:
@@ -180,17 +200,22 @@ The TypeScript interfaces in `packages/data/src/types.ts` are the source of trut
 
 | Field | Meaning |
 | --- | --- |
-| `metric` | Always `mvrv-zscore` for the valuation-risk proxy. |
+| `metric` | Always `bitcoin-risk-composite` for bitcoin-card's native free-source risk score. |
 | `mvrvZScore` | Derived MVRV Z-Score from Coin Metrics Community market-cap/MVRV history. |
 | `mvrv` | Latest Coin Metrics BTC MVRV ratio. |
-| `riskScore` | Local 0-100 valuation-risk score mapped from MVRV Z-Score. This is not blended with sentiment. |
-| `band` | Valuation band: `deep_value`, `value`, `neutral`, `elevated`, `high`, or `extreme`. |
+| `components` | Component breakdown used in the composite score. Each component has `value`, normalized `score`, `sourceMetric`, and `methodology`. |
+| `components.mvrvZDerived` | Valuation component derived from Coin Metrics `CapMrktCurUSD` and `CapMVRVCur`. |
+| `components.puellIssuance` | Puell-style component: `IssTotUSD / 365d moving average(IssTotUSD)`. |
+| `components.mayerMultiple` | Price momentum/valuation component: `PriceUSD / 200d SMA(PriceUSD)`. |
+| `components.ma200wDistance` | Cycle-position component: `PriceUSD / 1400d SMA(PriceUSD)`, a daily approximation of 200-week MA distance. |
+| `riskScore` | Local 0-100 composite risk score, computed as the average of normalized component scores. |
+| `band` | Composite risk band: `deep_value`, `value`, `neutral`, `elevated`, `high`, or `extreme`. |
 | `dataDate` | Date of the Coin Metrics daily datapoint. |
 | `unixTs` | Timestamp of the Coin Metrics daily datapoint. |
 | `source.name` | Source label, currently `Coin Metrics Community API`. |
 | `source.url` | Source endpoint used. |
 | `source.sourceQuality` | Currently `community-api-derived`. |
-| `history[]` | Daily valuation-risk history. Each point has `date`, `unixTs`, `mvrv`, `mvrvZScore`, `riskScore`, and `band`. |
+| `history[]` | Daily risk history. Each point has `date`, `unixTs`, `mvrv`, `mvrvZScore`, `components`, `riskScore`, and `band`. |
 | `sentiment` | Optional separate Alternative.me Crypto Fear & Greed context. Not part of `riskScore`. |
 | `sentimentStatus` | `available` when `sentiment` is present; `unavailable` when sentiment fetch failed or was omitted. |
 | `sentiment.metric` | Always `crypto-fear-and-greed` when present. |
@@ -201,8 +226,8 @@ The TypeScript interfaces in `packages/data/src/types.ts` are the source of trut
 | `sentiment.source.*` | Alternative.me attribution and source quality. Display attribution next to the sentiment value if shown. |
 | `sentiment.methodology` | Explanation that sentiment is context, not valuation risk. |
 | `sentiment.limitations` | Warning that the sentiment score is partly black-box/behavioral and attribution-required. |
-| `methodology` | Derivation text for the valuation-risk score. |
-| `limitations` | Caveats for the valuation-risk score. |
+| `methodology` | Derivation text for the composite score. |
+| `limitations` | Caveats for the composite score; it is not Cowen Risk, not Glassnode-equivalent, and not a trading signal. |
 | `fetchedAt` | Response timestamp. |
 
 ### `get_bitcoin_mean_reversion_index`
@@ -264,8 +289,9 @@ The TypeScript interfaces in `packages/data/src/types.ts` are the source of trut
 
 ## Data caveats
 
-- `get_bitcoin_risk` uses the no-key Coin Metrics Community API for BTC `CapMrktCurUSD` and `CapMVRVCur` daily history, derives realized cap and MVRV Z-Score locally, and caches once per UTC day in-process.
-- `get_bitcoin_risk` is a transparent MVRV Z-Score valuation-risk proxy with a locally computed 0-100 score, not a proprietary composite risk index or automated trading signal. Alternative.me Fear & Greed is included only as separate market-sentiment context when available and requires attribution next to displayed data.
+- `get_bitcoin_risk` uses the no-key Coin Metrics Community API for BTC `CapMrktCurUSD`, `CapMVRVCur`, `PriceUSD`, `IssTotUSD`, and `FeeTotNtv` daily history, derives component scores locally, and caches once per UTC day in-process.
+- `get_bitcoin_risk` is bitcoin-card's transparent native Bitcoin Risk composite. It combines MVRV-Z-derived valuation, Puell-style issuance multiple, Mayer Multiple, and 200WMA distance. It is not Cowen Risk, not Glassnode-equivalent, not entity-adjusted, not a proprietary composite, and not an automated trading signal. Alternative.me Fear & Greed is included only as separate market-sentiment context when available and requires attribution next to displayed data.
+- TradingStrategies.work signals should remain clearly labelled external/context signals unless the user explicitly chooses an enhanced external-provider mode.
 - Price and block height are cross-source checked and return agreement status.
 - Full BMRI currently depends on embedded public Checkonchain chart data, not an official Checkonchain API.
 - BMRI-lite is transparent and reproducible, but approximate.

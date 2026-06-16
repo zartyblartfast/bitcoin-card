@@ -136,6 +136,20 @@ export type BitcoinRiskBand =
 export type BitcoinRiskSourceQuality = "community-api-derived";
 export type BitcoinSentimentSourceQuality = "free-api-attribution-required";
 
+export interface BitcoinRiskComponent {
+  value: number;
+  score: number;
+  sourceMetric: string;
+  methodology: string;
+}
+
+export interface BitcoinRiskComponents {
+  mvrvZDerived: BitcoinRiskComponent;
+  puellIssuance: BitcoinRiskComponent;
+  mayerMultiple: BitcoinRiskComponent;
+  ma200wDistance: BitcoinRiskComponent;
+}
+
 export interface BitcoinSentiment {
   metric: "crypto-fear-and-greed";
   value: number;
@@ -156,14 +170,16 @@ export interface BitcoinRiskHistoryPoint {
   unixTs: number;
   mvrv: number;
   mvrvZScore: number;
+  components: BitcoinRiskComponents;
   riskScore: number;
   band: BitcoinRiskBand;
 }
 
 export interface BitcoinRisk {
-  metric: "mvrv-zscore";
+  metric: "bitcoin-risk-composite";
   mvrvZScore: number;
   mvrv: number;
+  components: BitcoinRiskComponents;
   riskScore: number;
   band: BitcoinRiskBand;
   dataDate: string;

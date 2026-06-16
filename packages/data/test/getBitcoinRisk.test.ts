@@ -17,18 +17,27 @@ function coinMetricsMvrvFixture(latestMvrv = "1.15") {
         time: "2026-06-10T00:00:00.000000000Z",
         CapMrktCurUSD: "100",
         CapMVRVCur: "1.0",
+        PriceUSD: "100",
+        IssTotUSD: "100",
+        FeeTotNtv: "1",
       },
       {
         asset: "btc",
         time: "2026-06-11T00:00:00.000000000Z",
         CapMrktCurUSD: "200",
         CapMVRVCur: "1.0",
+        PriceUSD: "150",
+        IssTotUSD: "200",
+        FeeTotNtv: "2",
       },
       {
         asset: "btc",
         time: "2026-06-13T00:00:00.000000000Z",
         CapMrktCurUSD: "400",
         CapMVRVCur: latestMvrv,
+        PriceUSD: "300",
+        IssTotUSD: "400",
+        FeeTotNtv: "4",
       },
     ],
   };
@@ -63,7 +72,7 @@ describe("getBitcoinRisk", () => {
     vi.useRealTimers();
   });
 
-  it("derives MVRV Z-score risk and adds separate Alternative.me sentiment", async () => {
+  it("derives a native composite Bitcoin Risk score and adds separate Alternative.me sentiment", async () => {
     const fetchMock = globalThis.fetch as ReturnType<typeof vi.fn>;
     fetchMock
       .mockResolvedValueOnce(new Response(JSON.stringify(coinMetricsMvrvFixture()), { status: 200 }))
@@ -71,11 +80,18 @@ describe("getBitcoinRisk", () => {
 
     const result = await getBitcoinRisk();
 
-    expect(result.metric).toBe("mvrv-zscore");
+    expect(result.metric).toBe("bitcoin-risk-composite");
     expect(result.mvrv).toBeCloseTo(1.15);
     expect(result.mvrvZScore).toBeCloseTo(0.4183219439);
-    expect(result.riskScore).toBe(12);
-    expect(result.band).toBe("deep_value");
+    expect(result.components.mvrvZDerived).toMatchObject({ score: 12, sourceMetric: "CapMrktCurUSD,CapMVRVCur" });
+    expect(result.components.puellIssuance.value).toBeCloseTo(1.7142857143);
+    expect(result.components.puellIssuance.score).toBe(38);
+    expect(result.components.mayerMultiple.value).toBeCloseTo(1.6363636364);
+    expect(result.components.mayerMultiple.score).toBe(58);
+    expect(result.components.ma200wDistance.value).toBeCloseTo(1.6363636364);
+    expect(result.components.ma200wDistance.score).toBe(58);
+    expect(result.riskScore).toBe(42);
+    expect(result.band).toBe("neutral");
     expect(result.dataDate).toBe("2026-06-13");
     expect(result.unixTs).toBe(1781308800);
     expect(result.source.name).toBe("Coin Metrics Community API");
@@ -86,15 +102,16 @@ describe("getBitcoinRisk", () => {
       date: "2026-06-10",
       mvrv: 1,
       mvrvZScore: 0,
-      riskScore: 7,
-      band: "deep_value",
+      riskScore: 18,
+      band: "value",
     });
     expect(result.history[2]).toMatchObject({
       date: "2026-06-13",
       mvrv: 1.15,
-      riskScore: 12,
-      band: "deep_value",
+      riskScore: 42,
+      band: "neutral",
     });
+    expect(result.history[2]!.components.puellIssuance.value).toBeCloseTo(1.7142857143);
     expect(result.history[2]!.mvrvZScore).toBeCloseTo(0.4183219439);
     expect(result.sentiment.metric).toBe("crypto-fear-and-greed");
     expect(result.sentiment.value).toBe(18);
@@ -147,7 +164,7 @@ describe("getBitcoinRisk", () => {
 
     const result = await getBitcoinRisk();
 
-    expect(result.riskScore).toBe(12);
+    expect(result.riskScore).toBe(42);
     expect(result.sentiment).toBeUndefined();
     expect(result.sentimentStatus).toMatch(/unavailable/i);
   });
@@ -159,7 +176,25 @@ describe("getBitcoinRisk", () => {
       }),
     );
 
-    await expect(getBitcoinRisk()).rejects.toThrow(/CapMrktCurUSD/i);
+    await expect(getBitcoinRisk()).rejects.toThrow(/too few usable rows/i);
+  });
+
+  it("skips sparse Coin Metrics rows that predate required metric availability", () => {
+    const fixture = coinMetricsMvrvFixture();
+    const result = parseCoinMetricsMvrvHistory(
+      {
+        data: [
+          { asset: "btc", time: "2009-01-03T00:00:00.000000000Z", IssTotUSD: "0" },
+          fixture.data[0],
+          fixture.data[1],
+          fixture.data[2],
+        ],
+      },
+      "2026-06-14T12:00:00.000Z",
+    );
+
+    expect(result.history).toHaveLength(3);
+    expect(result.history[0]!.date).toBe("2026-06-10");
   });
 
   it("parses unsorted history and uses the latest row by timestamp", () => {

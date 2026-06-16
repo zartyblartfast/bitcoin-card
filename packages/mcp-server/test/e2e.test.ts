@@ -47,18 +47,27 @@ function coinMetricsMvrvFixture() {
         time: "2026-06-10T00:00:00.000000000Z",
         CapMrktCurUSD: "100",
         CapMVRVCur: "1.0",
+        PriceUSD: "100",
+        IssTotUSD: "100",
+        FeeTotNtv: "1",
       },
       {
         asset: "btc",
         time: "2026-06-11T00:00:00.000000000Z",
         CapMrktCurUSD: "200",
         CapMVRVCur: "1.0",
+        PriceUSD: "150",
+        IssTotUSD: "200",
+        FeeTotNtv: "2",
       },
       {
         asset: "btc",
         time: "2026-06-13T00:00:00.000000000Z",
         CapMrktCurUSD: "400",
         CapMVRVCur: "1.15",
+        PriceUSD: "300",
+        IssTotUSD: "400",
+        FeeTotNtv: "4",
       },
     ],
   };
@@ -259,13 +268,15 @@ describe("MCP server e2e", () => {
       const result = await client.callTool({ name: "get_bitcoin_risk", arguments: {} });
       const text = (result.content as Array<{ type: string; text: string }>)[0]!.text;
       const parsed = JSON.parse(text);
-      expect(parsed.metric).toBe("mvrv-zscore");
+      expect(parsed.metric).toBe("bitcoin-risk-composite");
       expect(parsed.mvrvZScore).toBeCloseTo(0.4183219439);
-      expect(parsed.riskScore).toBe(12);
-      expect(parsed.band).toBe("deep_value");
+      expect(parsed.components.puellIssuance.value).toBeCloseTo(1.7142857143);
+      expect(parsed.components.mayerMultiple.score).toBe(58);
+      expect(parsed.riskScore).toBe(42);
+      expect(parsed.band).toBe("neutral");
       expect(parsed.source.sourceQuality).toBe("community-api-derived");
       expect(parsed.history).toHaveLength(3);
-      expect(parsed.history[2].riskScore).toBe(12);
+      expect(parsed.history[2].riskScore).toBe(42);
       expect(parsed.sentiment.value).toBe(18);
       expect(parsed.sentiment.classification).toBe("Extreme Fear");
       expect(parsed.limitations).toMatch(/community/i);
@@ -308,8 +319,8 @@ describe("MCP server e2e", () => {
       expect(parsed.network.blockHeight).toBe(900000);
       expect(parsed.meanReversion.zone).toBe("deep_value");
       expect(parsed.bitcoinRisk.mvrvZScore).toBeCloseTo(0.4183219439);
-      expect(parsed.bitcoinRisk.riskScore).toBe(12);
-      expect(parsed.bitcoinRisk.band).toBe("deep_value");
+      expect(parsed.bitcoinRisk.riskScore).toBe(42);
+      expect(parsed.bitcoinRisk.band).toBe("neutral");
       expect(parsed.bitcoinRisk.sentiment.value).toBe(18);
       expect(parsed.bitcoinRisk.sentiment.classification).toBe("Extreme Fear");
       expect(parsed.raw.meanReversion.history).toBeUndefined();

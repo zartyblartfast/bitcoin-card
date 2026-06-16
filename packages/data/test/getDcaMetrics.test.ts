@@ -37,18 +37,27 @@ function coinMetricsMvrvFixture() {
         time: "2026-06-10T00:00:00.000000000Z",
         CapMrktCurUSD: "100",
         CapMVRVCur: "1.0",
+        PriceUSD: "100",
+        IssTotUSD: "100",
+        FeeTotNtv: "1",
       },
       {
         asset: "btc",
         time: "2026-06-11T00:00:00.000000000Z",
         CapMrktCurUSD: "200",
         CapMVRVCur: "1.0",
+        PriceUSD: "150",
+        IssTotUSD: "200",
+        FeeTotNtv: "2",
       },
       {
         asset: "btc",
         time: "2026-06-13T00:00:00.000000000Z",
         CapMrktCurUSD: "400",
         CapMVRVCur: "1.15",
+        PriceUSD: "300",
+        IssTotUSD: "400",
+        FeeTotNtv: "4",
       },
     ],
   };
@@ -122,8 +131,8 @@ describe("getDcaMetrics", () => {
     expect(result.meanReversion.sourceQuality).toBe("public-chart-scrape");
     expect(result.meanReversion.caveat).toMatch(/not an official API/i);
     expect(result.bitcoinRisk.mvrvZScore).toBeCloseTo(0.4183219439);
-    expect(result.bitcoinRisk.riskScore).toBe(12);
-    expect(result.bitcoinRisk.band).toBe("deep_value");
+    expect(result.bitcoinRisk.riskScore).toBe(42);
+    expect(result.bitcoinRisk.band).toBe("neutral");
     expect(result.bitcoinRisk.sentiment?.value).toBe(18);
     expect(result.bitcoinRisk.sentiment?.classification).toBe("Extreme Fear");
     expect(result.bitcoinRisk.dataDate).toBe("2026-06-13");

@@ -1,7 +1,13 @@
-import type { BitcoinRisk, BitcoinRiskBand, BitcoinRiskHistoryPoint, BitcoinSentiment } from "./types.js";
+import type {
+  BitcoinRisk,
+  BitcoinRiskBand,
+  BitcoinRiskComponents,
+  BitcoinRiskHistoryPoint,
+  BitcoinSentiment,
+} from "./types.js";
 
 export const COIN_METRICS_MVRV_HISTORY_URL =
-  "https://community-api.coinmetrics.io/v4/timeseries/asset-metrics?assets=btc&metrics=CapMrktCurUSD,CapMVRVCur&frequency=1d&page_size=10000";
+  "https://community-api.coinmetrics.io/v4/timeseries/asset-metrics?assets=btc&metrics=CapMrktCurUSD,CapMVRVCur,PriceUSD,IssTotUSD,FeeTotNtv&frequency=1d&page_size=10000";
 
 export const ALTERNATIVE_ME_FEAR_GREED_URL = "https://api.alternative.me/fng/?limit=1&format=json";
 
@@ -14,6 +20,9 @@ type CoinMetricsMvrvHistoryRow = {
   time?: unknown;
   CapMrktCurUSD?: unknown;
   CapMVRVCur?: unknown;
+  PriceUSD?: unknown;
+  IssTotUSD?: unknown;
+  FeeTotNtv?: unknown;
 };
 
 type AlternativeMeFearGreedResponse = {
@@ -32,6 +41,9 @@ type ParsedMvrvHistoryRow = {
   marketCapUsd: number;
   mvrv: number;
   realizedCapUsd: number;
+  priceUsd: number;
+  issuanceUsd: number;
+  feeTotalBtc?: number;
 };
 
 type CachedBitcoinRisk = {
@@ -78,20 +90,39 @@ function parseCoinMetricsDate(value: unknown): { date: string; unixTs: number } 
   return { date, unixTs };
 }
 
+function hasRequiredCoinMetricsFields(row: CoinMetricsMvrvHistoryRow): boolean {
+  return (
+    typeof row.time === "string" &&
+    (typeof row.CapMrktCurUSD === "string" || typeof row.CapMrktCurUSD === "number") &&
+    (typeof row.CapMVRVCur === "string" || typeof row.CapMVRVCur === "number") &&
+    (typeof row.PriceUSD === "string" || typeof row.PriceUSD === "number") &&
+    (typeof row.IssTotUSD === "string" || typeof row.IssTotUSD === "number")
+  );
+}
+
 function parseHistoryRow(row: CoinMetricsMvrvHistoryRow): ParsedMvrvHistoryRow {
   const { date, unixTs } = parseCoinMetricsDate(row.time);
   const marketCapUsd = parseNumericString(row.CapMrktCurUSD, "CapMrktCurUSD");
   const mvrv = parseNumericString(row.CapMVRVCur, "CapMVRVCur");
+  const priceUsd = parseNumericString(row.PriceUSD, "PriceUSD");
+  const issuanceUsd = parseNumericString(row.IssTotUSD, "IssTotUSD");
+  const feeTotalBtc = row.FeeTotNtv === undefined ? undefined : parseNumericString(row.FeeTotNtv, "FeeTotNtv");
   if (marketCapUsd <= 0) throw new Error("Coin Metrics BTC market cap must be positive");
   if (mvrv <= 0) throw new Error("Coin Metrics BTC MVRV must be positive");
+  if (priceUsd <= 0) throw new Error("Coin Metrics BTC price must be positive");
+  if (issuanceUsd <= 0) throw new Error("Coin Metrics BTC issuance USD must be positive");
+  if (feeTotalBtc !== undefined && feeTotalBtc < 0) throw new Error("Coin Metrics BTC fees must be non-negative");
 
-  return {
+  const parsed = {
     date,
     unixTs,
     marketCapUsd,
     mvrv,
     realizedCapUsd: marketCapUsd / mvrv,
+    priceUsd,
+    issuanceUsd,
   };
+  return feeTotalBtc === undefined ? parsed : { ...parsed, feeTotalBtc };
 }
 
 function populationStandardDeviation(values: number[]): number {
@@ -139,6 +170,84 @@ export function riskBandFromMvrvZScore(mvrvZScore: number): BitcoinRiskBand {
   return "extreme";
 }
 
+function componentScoreFromRatio(value: number, low: number, high: number): number {
+  if (!Number.isFinite(value)) throw new Error("Bitcoin risk component value must be finite");
+  const normalized = (value - low) / (high - low);
+  return Math.max(0, Math.min(100, Math.round(normalized * 100)));
+}
+
+function riskBandFromCompositeScore(riskScore: number): BitcoinRiskBand {
+  if (!Number.isFinite(riskScore)) throw new Error("riskScore must be finite");
+  if (riskScore <= 15) return "deep_value";
+  if (riskScore <= 30) return "value";
+  if (riskScore <= 55) return "neutral";
+  if (riskScore <= 70) return "elevated";
+  if (riskScore <= 85) return "high";
+  return "extreme";
+}
+
+function average(values: number[]): number {
+  if (values.length === 0) throw new Error("Cannot average empty Bitcoin risk component window");
+  return values.reduce((sum, value) => sum + value, 0) / values.length;
+}
+
+function trailingAverage(rows: ParsedMvrvHistoryRow[], index: number, field: "priceUsd" | "issuanceUsd", period: number): number {
+  const start = Math.max(0, index - period + 1);
+  return average(rows.slice(start, index + 1).map((row) => row[field]));
+}
+
+function buildRiskComponents(
+  row: ParsedMvrvHistoryRow,
+  rows: ParsedMvrvHistoryRow[],
+  index: number,
+  mvrvZScore: number,
+): BitcoinRiskComponents {
+  const issuanceAverage365d = trailingAverage(rows, index, "issuanceUsd", 365);
+  const puell = row.issuanceUsd / issuanceAverage365d;
+  const priceAverage200d = trailingAverage(rows, index, "priceUsd", 200);
+  const mayer = row.priceUsd / priceAverage200d;
+  const priceAverage200w = trailingAverage(rows, index, "priceUsd", 1400);
+  const ma200wDistance = row.priceUsd / priceAverage200w;
+
+  return {
+    mvrvZDerived: {
+      value: mvrvZScore,
+      score: riskScoreFromMvrvZScore(mvrvZScore),
+      sourceMetric: "CapMrktCurUSD,CapMVRVCur",
+      methodology: "MVRV Z-Score proxy derived from market cap and MVRV-implied realized cap.",
+    },
+    puellIssuance: {
+      value: puell,
+      score: componentScoreFromRatio(puell, 0.3, 4.0),
+      sourceMetric: "IssTotUSD",
+      methodology: "Puell-style issuance multiple: daily BTC issuance USD divided by its trailing 365-day average. Short histories use the available trailing window.",
+    },
+    mayerMultiple: {
+      value: mayer,
+      score: componentScoreFromRatio(mayer, 0.6, 2.4),
+      sourceMetric: "PriceUSD",
+      methodology: "Mayer Multiple: BTC price divided by its trailing 200-day moving average. Short histories use the available trailing window.",
+    },
+    ma200wDistance: {
+      value: ma200wDistance,
+      score: componentScoreFromRatio(ma200wDistance, 0.6, 2.4),
+      sourceMetric: "PriceUSD",
+      methodology: "200-week moving-average distance: BTC price divided by its trailing 1400-day average. Short histories use the available trailing window.",
+    },
+  };
+}
+
+function compositeScoreFromComponents(components: BitcoinRiskComponents): number {
+  return Math.round(
+    average([
+      components.mvrvZDerived.score,
+      components.puellIssuance.score,
+      components.mayerMultiple.score,
+      components.ma200wDistance.score,
+    ]),
+  );
+}
+
 export function parseAlternativeMeFearGreed(payload: AlternativeMeFearGreedResponse): BitcoinSentiment {
   if (!Array.isArray(payload.data) || payload.data.length === 0) {
     throw new Error("Alternative.me Fear & Greed response missing data array");
@@ -180,7 +289,9 @@ export function parseCoinMetricsMvrvHistory(
   }
 
   const rows = payload.data
-    .map((row) => parseHistoryRow(row as CoinMetricsMvrvHistoryRow))
+    .map((row) => row as CoinMetricsMvrvHistoryRow)
+    .filter(hasRequiredCoinMetricsFields)
+    .map((row) => parseHistoryRow(row))
     .sort((a, b) => a.unixTs - b.unixTs);
 
   if (rows.length < 2) {
@@ -188,30 +299,34 @@ export function parseCoinMetricsMvrvHistory(
   }
 
   const latest = rows[rows.length - 1]!;
-  const marketCapStdDev = populationStandardDeviation(rows.map(row => row.marketCapUsd));
-  const history: BitcoinRiskHistoryPoint[] = rows.map((row) => {
+  const marketCapStdDev = populationStandardDeviation(rows.map((row) => row.marketCapUsd));
+  const history: BitcoinRiskHistoryPoint[] = rows.map((row, index) => {
     const mvrvZScore = assertFiniteNumber(
       (row.marketCapUsd - row.realizedCapUsd) / marketCapStdDev,
       "derived historical MVRV Z-Score",
     );
+    const components = buildRiskComponents(row, rows, index, mvrvZScore);
+    const riskScore = compositeScoreFromComponents(components);
     return {
       date: row.date,
       unixTs: row.unixTs,
       mvrv: row.mvrv,
       mvrvZScore,
-      riskScore: riskScoreFromMvrvZScore(mvrvZScore),
-      band: riskBandFromMvrvZScore(mvrvZScore),
+      components,
+      riskScore,
+      band: riskBandFromCompositeScore(riskScore),
     };
   });
   const latestHistory = history[history.length - 1]!;
   const mvrvZScore = latestHistory.mvrvZScore;
 
   return {
-    metric: "mvrv-zscore",
+    metric: "bitcoin-risk-composite",
     mvrvZScore,
     mvrv: latest.mvrv,
-    riskScore: riskScoreFromMvrvZScore(mvrvZScore),
-    band: riskBandFromMvrvZScore(mvrvZScore),
+    components: latestHistory.components,
+    riskScore: latestHistory.riskScore,
+    band: latestHistory.band,
     dataDate: latest.date,
     unixTs: latest.unixTs,
     source: {
@@ -222,9 +337,9 @@ export function parseCoinMetricsMvrvHistory(
     history,
     sentimentStatus: "unavailable",
     methodology:
-      "MVRV Z-Score derived from Coin Metrics Community BTC CapMrktCurUSD and CapMVRVCur daily history. Realized cap is inferred as market cap / MVRV, then MVRV Z-Score is computed as (market cap - realized cap) / population standard deviation of historical market cap. The local 0-100 score linearly maps MVRV Z-Score from -0.5 (0 risk) to 7.0 (100 risk) and clamps outside that range.",
+      "Native bitcoin-card Bitcoin Risk composite. Components are MVRV Z-Score derived from Coin Metrics CapMrktCurUSD and CapMVRVCur, Puell-style issuance multiple from IssTotUSD, Mayer Multiple from PriceUSD, and 200-week moving-average distance from PriceUSD. Component scores are normalized to 0-100 and averaged. Alternative.me Fear & Greed and other third-party composites are returned only as separate context when available, not hidden inside the native score.",
     limitations:
-      "This is an open, reproducible MVRV Z-Score valuation-risk proxy derived from Coin Metrics Community API data under its community license; it is not a proprietary composite risk index or an automated trading signal.",
+      "This is an open, reproducible free-source Bitcoin risk composite derived from Coin Metrics Community API data under its community license. It is not Cowen Risk, not Glassnode-equivalent, not entity-adjusted, and not an automated trading signal. Reserve Risk and Terminal Price are intentionally excluded until a clean CDD source or self-computed pipeline exists.",
     fetchedAt,
   };
 }

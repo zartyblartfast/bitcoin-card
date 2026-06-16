@@ -1,0 +1,566 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Bitcoin Card — local test dashboard</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #090b10;
+      --panel: #111827;
+      --panel-2: #0f172a;
+      --text: #f8fafc;
+      --muted: #94a3b8;
+      --line: rgba(148, 163, 184, .22);
+      --orange: #f7931a;
+      --green: #22c55e;
+      --red: #fb7185;
+      --blue: #38bdf8;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background:
+        radial-gradient(circle at 12% 0%, rgba(247, 147, 26, .22), transparent 32rem),
+        radial-gradient(circle at 100% 10%, rgba(56, 189, 248, .14), transparent 34rem),
+        var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+    }
+    main { max-width: 1180px; margin: 0 auto; padding: 32px 20px 48px; }
+    header { display: flex; gap: 20px; justify-content: space-between; align-items: flex-start; margin-bottom: 24px; }
+    h1 { font-size: clamp(30px, 5vw, 56px); line-height: .96; margin: 0; letter-spacing: -0.05em; }
+    .subtitle { color: var(--muted); margin-top: 12px; max-width: 680px; font-size: 16px; }
+    .badge { display: inline-flex; gap: 8px; align-items: center; border: 1px solid var(--line); border-radius: 999px; padding: 8px 12px; color: var(--muted); background: rgba(15, 23, 42, .74); white-space: nowrap; }
+    .dot { width: 9px; height: 9px; border-radius: 50%; background: var(--green); box-shadow: 0 0 18px var(--green); }
+    .grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; }
+    .card { background: linear-gradient(180deg, rgba(17, 24, 39, .88), rgba(15, 23, 42, .88)); border: 1px solid var(--line); border-radius: 22px; padding: 20px; box-shadow: 0 18px 50px rgba(0,0,0,.24); }
+    .span-2 { grid-column: span 2; }
+    .span-4 { grid-column: span 4; }
+    .label { color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: .12em; margin-bottom: 8px; }
+    .value { font-size: clamp(26px, 4vw, 46px); font-weight: 760; letter-spacing: -0.045em; }
+    .small-value { font-size: 25px; font-weight: 720; letter-spacing: -0.035em; }
+    .muted { color: var(--muted); }
+    .orange { color: var(--orange); }
+    .green { color: var(--green); }
+    .blue { color: var(--blue); }
+    .row { display: flex; justify-content: space-between; gap: 16px; padding: 10px 0; border-bottom: 1px solid var(--line); }
+    .row:last-child { border-bottom: 0; }
+    .source { display: inline-flex; align-items: center; gap: 7px; margin-right: 10px; margin-top: 10px; color: var(--muted); font-size: 13px; }
+    .source.ok::before { content: ""; width: 7px; height: 7px; background: var(--green); border-radius: 50%; }
+    .source.bad::before { content: ""; width: 7px; height: 7px; background: var(--red); border-radius: 50%; }
+    button { cursor: pointer; background: var(--orange); color: #1b1003; border: 0; border-radius: 14px; padding: 11px 15px; font-weight: 760; box-shadow: 0 10px 24px rgba(247, 147, 26, .22); }
+    button.secondary { background: transparent; color: var(--text); border: 1px solid var(--line); box-shadow: none; }
+    button.secondary.active { background: rgba(247, 147, 26, .16); border-color: rgba(247, 147, 26, .72); color: var(--orange); }
+    .actions { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+    .zoom-controls { display: flex; gap: 6px; flex-wrap: wrap; margin: 10px 0 6px; }
+    .zoom-controls button { padding: 7px 10px; border-radius: 999px; font-size: 12px; box-shadow: none; }
+    pre { overflow: auto; max-height: 340px; margin: 0; color: #cbd5e1; font-size: 12px; line-height: 1.45; background: #020617; padding: 14px; border-radius: 14px; border: 1px solid var(--line); }
+    .status { min-height: 20px; color: var(--muted); font-size: 14px; margin-top: 10px; }
+    .metric-strip { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin: 16px 0; }
+    .mini { border: 1px solid var(--line); border-radius: 16px; padding: 12px; background: rgba(2, 6, 23, .34); }
+    .mini .label { margin-bottom: 4px; }
+    .mini strong { font-size: 22px; letter-spacing: -0.035em; }
+    .legend { display: flex; gap: 16px; flex-wrap: wrap; color: var(--muted); font-size: 13px; margin: 8px 0 12px; }
+    .legend span { display: inline-flex; align-items: center; gap: 7px; }
+    .legend span::before { content: ""; width: 18px; height: 3px; border-radius: 999px; background: var(--line); }
+    .legend .full::before { background: var(--orange); }
+    .legend .lite::before { background: var(--blue); }
+    .legend .risk::before { background: var(--green); }
+    .legend .component-a::before { background: var(--blue); }
+    .legend .component-b::before { background: #a78bfa; }
+    .legend .component-c::before { background: #fbbf24; }
+    .legend .component-d::before { background: #fb7185; }
+    .chart-wrap { position: relative; width: 100%; min-height: 320px; border: 1px solid var(--line); border-radius: 18px; background: #020617; overflow: hidden; }
+    .chart-wrap svg { display: block; width: 100%; height: 320px; }
+    .chart-tooltip { position: absolute; pointer-events: none; display: none; min-width: 170px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 12px; background: rgba(2, 6, 23, .94); color: var(--text); font-size: 12px; line-height: 1.45; box-shadow: 0 18px 40px rgba(0,0,0,.35); z-index: 2; }
+    .chart-tooltip strong { display: block; margin-bottom: 4px; font-size: 13px; }
+    .chart-tooltip .full { color: var(--orange); }
+    .chart-tooltip .lite { color: var(--blue); }
+    .axis { stroke: rgba(148, 163, 184, .35); stroke-width: 1; }
+    .gridline { stroke: rgba(148, 163, 184, .13); stroke-width: 1; }
+    .axis-label { fill: var(--muted); font-size: 11px; }
+    .full-line { fill: none; stroke: var(--orange); stroke-width: 2.5; }
+    .lite-line { fill: none; stroke: var(--blue); stroke-width: 2.5; }
+    .risk-line { fill: none; stroke: var(--green); stroke-width: 2.8; }
+    .component-line { fill: none; stroke-width: 1.5; opacity: .72; }
+    .band-label { fill: rgba(248, 250, 252, .62); font-size: 11px; font-weight: 700; letter-spacing: .08em; }
+    .diff-area { fill: rgba(56, 189, 248, .08); }
+    @media (max-width: 900px) { .grid { grid-template-columns: 1fr 1fr; } .span-4 { grid-column: span 2; } header { flex-direction: column; } .metric-strip { grid-template-columns: 1fr 1fr; } }
+    @media (max-width: 620px) { .grid { grid-template-columns: 1fr; } .span-2, .span-4 { grid-column: span 1; } .metric-strip { grid-template-columns: 1fr; } }
+  </style>
+</head>
+<body>
+  <main>
+    <header>
+      <div>
+        <h1><span class="orange">Bitcoin Card</span><br />local test dashboard</h1>
+        <div class="subtitle">A simple browser page served locally. It calls this local server, which fetches the same public data sources used by the Bitcoin info MCP package: Coinbase, Kraken, mempool.space, and Blockstream.</div>
+      </div>
+      <div>
+        <div class="badge"><span class="dot" id="live-dot"></span><span id="live-label">Loading</span></div>
+        <div class="status" id="last-updated"></div>
+      </div>
+    </header>
+
+    <section class="grid">
+      <article class="card span-2">
+        <div class="label">BTC price</div>
+        <div class="value" id="price">—</div>
+        <div class="muted" id="price-agreement">Waiting for Coinbase + Kraken…</div>
+        <div id="price-sources"></div>
+      </article>
+
+      <article class="card">
+        <div class="label">Block height</div>
+        <div class="small-value" id="height">—</div>
+        <div class="muted" id="height-agreement">—</div>
+      </article>
+
+      <article class="card">
+        <div class="label">Next halving ETA</div>
+        <div class="small-value" id="halving">—</div>
+        <div class="muted" id="blocks-left">—</div>
+      </article>
+
+      <article class="card span-2">
+        <div class="label">Mempool fees, sat/vB</div>
+        <div class="row"><span>Fastest</span><strong id="fee-fastest">—</strong></div>
+        <div class="row"><span>~30 min</span><strong id="fee-halfhour">—</strong></div>
+        <div class="row"><span>~60 min</span><strong id="fee-hour">—</strong></div>
+        <div class="row"><span>Minimum</span><strong id="fee-minimum">—</strong></div>
+      </article>
+
+      <article class="card">
+        <div class="label">Network hashrate</div>
+        <div class="small-value" id="hashrate">—</div>
+        <div class="muted">EH/s via mempool.space</div>
+      </article>
+
+      <article class="card">
+        <div class="label">Unmined BTC</div>
+        <div class="small-value" id="unmined">—</div>
+        <div class="muted" id="supply">—</div>
+      </article>
+
+      <article class="card span-4">
+        <div style="display:flex; justify-content:space-between; gap:12px; align-items:flex-start; margin-bottom:4px;">
+          <div>
+            <div class="label">Bitcoin Mean Reversion Index comparison</div>
+            <div class="muted">Full Checkonchain BMRI versus transparent BMRI-lite using 200DMA, 200WMA, and Realized Price.</div>
+          </div>
+          <button class="secondary" id="refresh-bmri">Refresh BMRI</button>
+        </div>
+        <div class="metric-strip">
+          <div class="mini"><div class="label">Full BMRI</div><strong id="bmri-full">—</strong><div class="muted" id="bmri-date">—</div></div>
+          <div class="mini"><div class="label">BMRI-lite</div><strong id="bmri-lite">—</strong><div class="muted">3-anchor approximation</div></div>
+          <div class="mini"><div class="label">Difference</div><strong id="bmri-diff">—</strong><div class="muted">lite minus full</div></div>
+          <div class="mini"><div class="label">365d mean abs error</div><strong id="bmri-mae">—</strong><div class="muted">recent fit</div></div>
+        </div>
+        <div class="legend"><span class="full">Full Checkonchain BMRI</span><span class="lite">BMRI-lite</span></div>
+        <div class="zoom-controls" aria-label="BMRI chart time range">
+          <button class="secondary" data-bmri-range="30">1M</button>
+          <button class="secondary" data-bmri-range="180">6M</button>
+          <button class="secondary active" data-bmri-range="365">1Y</button>
+          <button class="secondary" data-bmri-range="730">2Y</button>
+          <button class="secondary" data-bmri-range="1825">5Y</button>
+          <button class="secondary" data-bmri-range="all">All</button>
+        </div>
+        <div class="chart-wrap" id="bmri-chart"><svg role="img" aria-label="BMRI comparison chart"></svg><div class="chart-tooltip" id="bmri-tooltip"></div></div>
+        <div class="status" id="bmri-note">Loading BMRI comparison…</div>
+        <div class="actions" style="margin-top:10px;">
+          <button class="secondary" id="toggle-bmri-raw">Show BMRI raw</button>
+        </div>
+        <pre id="bmri-raw" style="display:none; margin-top:10px;">Loading BMRI…</pre>
+      </article>
+
+      <article class="card span-4">
+        <div style="display:flex; justify-content:space-between; gap:12px; align-items:flex-start; margin-bottom:4px;">
+          <div>
+            <div class="label">Bitcoin Risk composite</div>
+            <div class="muted">A 0-100 valuation/cycle-risk gauge. Higher means Bitcoin is more historically stretched versus its own valuation, mining issuance, and moving-average context; lower means historically cooler. It is not “bad” or “good” by itself, and not a trading signal.</div>
+          </div>
+          <button class="secondary" id="refresh-risk">Refresh risk</button>
+        </div>
+        <div class="metric-strip">
+          <div class="mini"><div class="label">Risk score</div><strong id="risk-score">—</strong><div class="muted" id="risk-date">—</div></div>
+          <div class="mini"><div class="label">Band</div><strong id="risk-band">—</strong><div class="muted">cycle valuation context</div></div>
+          <div class="mini"><div class="label">MVRV-Z</div><strong id="risk-mvrv">—</strong><div class="muted">valuation component</div></div>
+          <div class="mini"><div class="label">Puell</div><strong id="risk-puell">—</strong><div class="muted">issuance component</div></div>
+        </div>
+        <div class="legend"><span class="risk">Composite score</span><span class="component-a">MVRV-Z</span><span class="component-b">Puell</span><span class="component-c">Mayer</span><span class="component-d">200WMA distance</span></div>
+        <div class="zoom-controls" aria-label="Bitcoin Risk chart time range">
+          <button class="secondary" data-risk-range="365">1Y</button>
+          <button class="secondary active" data-risk-range="1460">4Y</button>
+          <button class="secondary" data-risk-range="2920">8Y</button>
+          <button class="secondary" data-risk-range="all">All</button>
+        </div>
+        <div class="chart-wrap" id="risk-chart"><svg role="img" aria-label="Bitcoin Risk history chart"></svg><div class="chart-tooltip" id="risk-tooltip"></div></div>
+        <div class="status" id="risk-note">Loading Bitcoin Risk…</div>
+        <div class="actions" style="margin-top:10px;">
+          <button class="secondary" id="toggle-risk-raw">Show risk raw</button>
+        </div>
+        <pre id="risk-raw" style="display:none; margin-top:10px;">Loading Bitcoin Risk…</pre>
+      </article>
+
+      <article class="card span-4">
+        <div style="display:flex; justify-content:space-between; gap:12px; align-items:center; margin-bottom:14px;">
+          <div>
+            <div class="label">Raw API response</div>
+            <div class="muted">Useful while testing the MCP package shape and source agreement.</div>
+          </div>
+          <div class="actions">
+            <button id="refresh">Refresh now</button>
+            <button class="secondary" id="toggle-raw">Show raw</button>
+          </div>
+        </div>
+        <pre id="raw" style="display:none">Loading…</pre>
+      </article>
+    </section>
+  </main>
+
+  <script>
+    const $ = (id) => document.getElementById(id);
+    const fmtUsd = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 });
+    const fmtNum = new Intl.NumberFormat("en-US", { maximumFractionDigits: 2 });
+    const fmtInt = new Intl.NumberFormat("en-US", { maximumFractionDigits: 0 });
+    let bmriHistory = [];
+    let bmriRangeDays = 365;
+    let bmriData = null;
+    let riskHistory = [];
+    let riskRangeDays = 1460;
+    let riskData = null;
+
+    function sourcePill(s) {
+      const text = s.ok ? `${s.source}: ${typeof s.value === "number" ? fmtNum.format(s.value) : "ok"}` : `${s.source}: ${s.error}`;
+      return `<span class="source ${s.ok ? "ok" : "bad"}">${text}</span>`;
+    }
+
+    function setText(id, value) { $(id).textContent = value ?? "—"; }
+
+    function pathFor(points, xFor, yFor, key) {
+      return points.map((point, index) => `${index === 0 ? "M" : "L"}${xFor(index).toFixed(1)},${yFor(point[key]).toFixed(1)}`).join(" ");
+    }
+
+    function pathForValue(points, xFor, yFor, valueFor) {
+      return points.map((point, index) => `${index === 0 ? "M" : "L"}${xFor(index).toFixed(1)},${yFor(valueFor(point)).toFixed(1)}`).join(" ");
+    }
+
+    function bandExplanation(score) {
+      if (score <= 15) return "Deep value / historically cool";
+      if (score <= 30) return "Value / below-normal cycle heat";
+      if (score <= 55) return "Neutral / mid-cycle heat";
+      if (score <= 70) return "Elevated / historically warm";
+      if (score <= 85) return "High / possible trimming zone";
+      return "Extreme / historically overheated";
+    }
+
+    function drawBmriChart(history) {
+      const svg = $("bmri-chart").querySelector("svg");
+      const width = svg.clientWidth || 1080;
+      const height = 320;
+      const pad = { top: 18, right: 18, bottom: 42, left: 42 };
+      const clean = history.filter((p) => Number.isFinite(p.fullIndex) && Number.isFinite(p.liteIndex));
+      const points = bmriRangeDays === "all" ? clean : clean.slice(-Number(bmriRangeDays));
+      if (points.length < 2) {
+        svg.innerHTML = `<text x="20" y="40" fill="#94a3b8">Not enough BMRI data to draw chart.</text>`;
+        return;
+      }
+      const minY = 0;
+      const maxY = 100;
+      const innerW = width - pad.left - pad.right;
+      const innerH = height - pad.top - pad.bottom;
+      const xFor = (i) => pad.left + (i / (points.length - 1)) * innerW;
+      const yFor = (v) => pad.top + (1 - (v - minY) / (maxY - minY || 1)) * innerH;
+      const yTicks = [0, 5, 10, 20, 50, 75, 90, 100];
+      const bands = [
+        { from: 0, to: 5, color: "rgba(20, 83, 45, .72)", label: "Q0–Q5 deep value" },
+        { from: 5, to: 10, color: "rgba(22, 101, 52, .55)", label: "Q5–Q10 value" },
+        { from: 10, to: 20, color: "rgba(74, 222, 128, .24)", label: "Q10–Q20 cheap" },
+        { from: 20, to: 50, color: "rgba(148, 163, 184, .08)", label: "Q20–Q50 below mean" },
+        { from: 50, to: 75, color: "rgba(251, 191, 36, .10)", label: "Q50–Q75 warm" },
+        { from: 75, to: 90, color: "rgba(251, 146, 60, .18)", label: "Q75–Q90 expensive" },
+        { from: 90, to: 100, color: "rgba(239, 68, 68, .28)", label: "Q90–Q100 overheated" },
+      ];
+      const first = points[0].date;
+      const last = points.at(-1).date;
+      const fullPath = pathFor(points, xFor, yFor, "fullIndex");
+      const litePath = pathFor(points, xFor, yFor, "liteIndex");
+      const labelEvery = Math.ceil(points.length / 5);
+      const seenLabels = new Set();
+      const xLabels = points.filter((_, i) => i % labelEvery === 0).concat(points.at(-1)).filter((p) => {
+        if (!p || seenLabels.has(p.date)) return false;
+        seenLabels.add(p.date);
+        return true;
+      });
+      const xLabelFor = (date) => bmriRangeDays === "all" || Number(bmriRangeDays) > 730 ? date.slice(0, 4) : date.slice(5);
+
+      svg.setAttribute("viewBox", `0 0 ${width} ${height}`);
+      svg.innerHTML = `
+        <rect x="0" y="0" width="${width}" height="${height}" fill="#020617"></rect>
+        ${bands.map((b) => {
+          const yTop = yFor(b.to);
+          const yBottom = yFor(b.from);
+          return `<rect x="${pad.left}" y="${yTop}" width="${innerW}" height="${yBottom - yTop}" fill="${b.color}"></rect>`;
+        }).join("")}
+        ${bands.filter((b) => b.to <= 20 || b.from >= 75).map((b) => `<text class="band-label" x="${pad.left + 10}" y="${(yFor(b.from) + yFor(b.to)) / 2 + 4}">${b.label}</text>`).join("")}
+        ${yTicks.map((v) => `<line class="gridline" x1="${pad.left}" x2="${width - pad.right}" y1="${yFor(v)}" y2="${yFor(v)}"></line><text class="axis-label" x="8" y="${yFor(v) + 4}">Q${v}</text>`).join("")}
+        <line class="axis" x1="${pad.left}" x2="${width - pad.right}" y1="${height - pad.bottom}" y2="${height - pad.bottom}"></line>
+        <path class="full-line" d="${fullPath}"></path>
+        <path class="lite-line" d="${litePath}"></path>
+        <line id="bmri-crosshair" x1="${pad.left}" x2="${pad.left}" y1="${pad.top}" y2="${height - pad.bottom}" stroke="rgba(248, 250, 252, .55)" stroke-width="1" stroke-dasharray="4 4" style="display:none"></line>
+        <circle id="bmri-hover-full" r="4" fill="var(--orange)" stroke="#020617" stroke-width="2" style="display:none"></circle>
+        <circle id="bmri-hover-lite" r="4" fill="var(--blue)" stroke="#020617" stroke-width="2" style="display:none"></circle>
+        <circle cx="${xFor(points.length - 1)}" cy="${yFor(points.at(-1).fullIndex)}" r="4" fill="var(--orange)"></circle>
+        <circle cx="${xFor(points.length - 1)}" cy="${yFor(points.at(-1).liteIndex)}" r="4" fill="var(--blue)"></circle>
+        ${xLabels.map((p) => `<text class="axis-label" text-anchor="middle" x="${xFor(points.findIndex((point) => point.date === p.date))}" y="${height - 14}">${xLabelFor(p.date)}</text>`).join("")}
+      `;
+
+      const tooltip = $("bmri-tooltip");
+      const crosshair = svg.querySelector("#bmri-crosshair");
+      const hoverFull = svg.querySelector("#bmri-hover-full");
+      const hoverLite = svg.querySelector("#bmri-hover-lite");
+      const hideHover = () => {
+        tooltip.style.display = "none";
+        crosshair.style.display = "none";
+        hoverFull.style.display = "none";
+        hoverLite.style.display = "none";
+      };
+      svg.onmouseleave = hideHover;
+      svg.onmousemove = (event) => {
+        const rect = svg.getBoundingClientRect();
+        const scaleX = width / rect.width;
+        const x = (event.clientX - rect.left) * scaleX;
+        const clampedX = Math.max(pad.left, Math.min(width - pad.right, x));
+        const idx = Math.round(((clampedX - pad.left) / innerW) * (points.length - 1));
+        const point = points[Math.max(0, Math.min(points.length - 1, idx))];
+        const cx = xFor(idx);
+        const fullY = yFor(point.fullIndex);
+        const liteY = yFor(point.liteIndex);
+        crosshair.setAttribute("x1", cx);
+        crosshair.setAttribute("x2", cx);
+        crosshair.style.display = "block";
+        hoverFull.setAttribute("cx", cx);
+        hoverFull.setAttribute("cy", fullY);
+        hoverFull.style.display = "block";
+        hoverLite.setAttribute("cx", cx);
+        hoverLite.setAttribute("cy", liteY);
+        hoverLite.style.display = "block";
+        tooltip.innerHTML = `<strong>${point.date}</strong><div class="full">Full BMRI: Q${point.fullIndex.toFixed(1)}</div><div class="lite">BMRI-lite: Q${point.liteIndex.toFixed(1)}</div><div>Diff: ${point.difference >= 0 ? "+" : ""}${point.difference.toFixed(1)}</div><div>BTC: ${fmtUsd.format(point.price)}</div>`;
+        const chartRect = $("bmri-chart").getBoundingClientRect();
+        const left = Math.min(chartRect.width - 190, Math.max(8, event.clientX - chartRect.left + 14));
+        const top = Math.min(chartRect.height - 112, Math.max(8, event.clientY - chartRect.top - 58));
+        tooltip.style.left = `${left}px`;
+        tooltip.style.top = `${top}px`;
+        tooltip.style.display = "block";
+      };
+    }
+
+    async function loadBmri() {
+      setText("bmri-note", "Loading BMRI comparison…");
+      const res = await fetch("/api/bmri-comparison", { cache: "no-store" });
+      if (!res.ok) throw new Error(`BMRI ${res.status} ${res.statusText}`);
+      const data = await res.json();
+      const latest = data.latest;
+      setText("bmri-full", latest?.fullIndex == null ? "—" : latest.fullIndex.toFixed(1));
+      setText("bmri-lite", latest?.liteIndex == null ? "—" : latest.liteIndex.toFixed(1));
+      setText("bmri-diff", latest?.difference == null ? "—" : `${latest.difference >= 0 ? "+" : ""}${latest.difference.toFixed(1)}`);
+      setText("bmri-mae", data.stats?.recentMeanAbsoluteError == null ? "—" : data.stats.recentMeanAbsoluteError.toFixed(1));
+      setText("bmri-date", latest?.date ? `Data date ${latest.date}` : "—");
+      setText("bmri-note", `${data.source.note} Lite components: 200DMA Q${latest.liteComponents["200DMA"].toFixed(1)}, 200WMA Q${latest.liteComponents["200WMA"].toFixed(1)}, Realized Price Q${latest.liteComponents["Realized Price"].toFixed(1)}.`);
+      bmriData = data;
+      $("bmri-raw").textContent = JSON.stringify(data, null, 2);
+      bmriHistory = data.history || [];
+      drawBmriChart(bmriHistory);
+    }
+
+    function drawRiskChart(history) {
+      const svg = $("risk-chart").querySelector("svg");
+      const width = svg.clientWidth || 1080;
+      const height = 320;
+      const pad = { top: 18, right: 18, bottom: 42, left: 42 };
+      const clean = history.filter((p) => Number.isFinite(p.riskScore));
+      const points = riskRangeDays === "all" ? clean : clean.slice(-Number(riskRangeDays));
+      if (points.length < 2) {
+        svg.innerHTML = `<text x="20" y="40" fill="#94a3b8">Not enough Bitcoin Risk data to draw chart.</text>`;
+        return;
+      }
+      const innerW = width - pad.left - pad.right;
+      const innerH = height - pad.top - pad.bottom;
+      const xFor = (i) => pad.left + (i / (points.length - 1)) * innerW;
+      const yFor = (v) => pad.top + (1 - v / 100) * innerH;
+      const bands = [
+        { from: 0, to: 15, color: "rgba(20, 83, 45, .70)", label: "deep value" },
+        { from: 15, to: 30, color: "rgba(22, 101, 52, .48)", label: "value" },
+        { from: 30, to: 55, color: "rgba(148, 163, 184, .08)", label: "neutral" },
+        { from: 55, to: 70, color: "rgba(251, 191, 36, .12)", label: "elevated" },
+        { from: 70, to: 85, color: "rgba(251, 146, 60, .18)", label: "high" },
+        { from: 85, to: 100, color: "rgba(239, 68, 68, .30)", label: "extreme" },
+      ];
+      const yTicks = [0, 15, 30, 55, 70, 85, 100];
+      const riskPath = pathFor(points, xFor, yFor, "riskScore");
+      const componentPaths = [
+        ["mvrvZDerived", "#38bdf8"],
+        ["puellIssuance", "#a78bfa"],
+        ["mayerMultiple", "#fbbf24"],
+        ["ma200wDistance", "#fb7185"],
+      ].map(([key, color]) => `<path class="component-line" stroke="${color}" d="${pathForValue(points, xFor, yFor, (p) => p.components[key].score)}"></path>`).join("");
+      const labelEvery = Math.ceil(points.length / 5);
+      const seenLabels = new Set();
+      const xLabels = points.filter((_, i) => i % labelEvery === 0).concat(points.at(-1)).filter((p) => {
+        if (!p || seenLabels.has(p.date)) return false;
+        seenLabels.add(p.date);
+        return true;
+      });
+      const xLabelFor = (date) => riskRangeDays === "all" || Number(riskRangeDays) > 1460 ? date.slice(0, 4) : date.slice(5);
+      svg.setAttribute("viewBox", `0 0 ${width} ${height}`);
+      svg.innerHTML = `
+        <rect x="0" y="0" width="${width}" height="${height}" fill="#020617"></rect>
+        ${bands.map((b) => `<rect x="${pad.left}" y="${yFor(b.to)}" width="${innerW}" height="${yFor(b.from) - yFor(b.to)}" fill="${b.color}"></rect>`).join("")}
+        ${bands.map((b) => `<text class="band-label" x="${pad.left + 10}" y="${(yFor(b.from) + yFor(b.to)) / 2 + 4}">${b.label}</text>`).join("")}
+        ${yTicks.map((v) => `<line class="gridline" x1="${pad.left}" x2="${width - pad.right}" y1="${yFor(v)}" y2="${yFor(v)}"></line><text class="axis-label" x="8" y="${yFor(v) + 4}">${v}</text>`).join("")}
+        <line class="axis" x1="${pad.left}" x2="${width - pad.right}" y1="${height - pad.bottom}" y2="${height - pad.bottom}"></line>
+        ${componentPaths}
+        <path class="risk-line" d="${riskPath}"></path>
+        <line id="risk-crosshair" x1="${pad.left}" x2="${pad.left}" y1="${pad.top}" y2="${height - pad.bottom}" stroke="rgba(248, 250, 252, .55)" stroke-width="1" stroke-dasharray="4 4" style="display:none"></line>
+        <circle id="risk-hover" r="4" fill="var(--green)" stroke="#020617" stroke-width="2" style="display:none"></circle>
+        <circle cx="${xFor(points.length - 1)}" cy="${yFor(points.at(-1).riskScore)}" r="4" fill="var(--green)"></circle>
+        ${xLabels.map((p) => `<text class="axis-label" text-anchor="middle" x="${xFor(points.findIndex((point) => point.date === p.date))}" y="${height - 14}">${xLabelFor(p.date)}</text>`).join("")}
+      `;
+      const tooltip = $("risk-tooltip");
+      const crosshair = svg.querySelector("#risk-crosshair");
+      const hover = svg.querySelector("#risk-hover");
+      const hideHover = () => { tooltip.style.display = "none"; crosshair.style.display = "none"; hover.style.display = "none"; };
+      svg.onmouseleave = hideHover;
+      svg.onmousemove = (event) => {
+        const rect = svg.getBoundingClientRect();
+        const scaleX = width / rect.width;
+        const x = (event.clientX - rect.left) * scaleX;
+        const clampedX = Math.max(pad.left, Math.min(width - pad.right, x));
+        const idx = Math.max(0, Math.min(points.length - 1, Math.round(((clampedX - pad.left) / innerW) * (points.length - 1))));
+        const point = points[idx];
+        const cx = xFor(idx);
+        crosshair.setAttribute("x1", cx);
+        crosshair.setAttribute("x2", cx);
+        crosshair.style.display = "block";
+        hover.setAttribute("cx", cx);
+        hover.setAttribute("cy", yFor(point.riskScore));
+        hover.style.display = "block";
+        tooltip.innerHTML = `<strong>${point.date}</strong><div class="green">Composite: ${point.riskScore}/100 (${point.band})</div><div>MVRV-Z: ${point.components.mvrvZDerived.score}</div><div>Puell: ${point.components.puellIssuance.score}</div><div>Mayer: ${point.components.mayerMultiple.score}</div><div>200WMA dist: ${point.components.ma200wDistance.score}</div>`;
+        const chartRect = $("risk-chart").getBoundingClientRect();
+        tooltip.style.left = `${Math.min(chartRect.width - 190, Math.max(8, event.clientX - chartRect.left + 14))}px`;
+        tooltip.style.top = `${Math.min(chartRect.height - 132, Math.max(8, event.clientY - chartRect.top - 58))}px`;
+        tooltip.style.display = "block";
+      };
+    }
+
+    async function loadRisk() {
+      setText("risk-note", "Loading Bitcoin Risk…");
+      const res = await fetch("/api/bitcoin-risk", { cache: "no-store" });
+      if (!res.ok) throw new Error(`Bitcoin Risk ${res.status} ${res.statusText}`);
+      const data = await res.json();
+      setText("risk-score", `${data.riskScore}/100`);
+      setText("risk-band", String(data.band || "—").replaceAll("_", " "));
+      setText("risk-date", data.dataDate ? `Data date ${data.dataDate}` : "—");
+      setText("risk-mvrv", data.mvrvZScore == null ? "—" : data.mvrvZScore.toFixed(2));
+      setText("risk-puell", data.components?.puellIssuance?.value == null ? "—" : data.components.puellIssuance.value.toFixed(2));
+      setText("risk-note", `${bandExplanation(data.riskScore)}. Constructed from four transparent Coin Metrics components: MVRV-Z-derived valuation, Puell-style issuance, Mayer Multiple, and 200WMA distance. High can mark historically stretched/sell-zone conditions; low can mark historically cooler/buy-zone conditions. Not advice.`);
+      riskData = data;
+      riskHistory = data.history || [];
+      $("risk-raw").textContent = JSON.stringify(data, null, 2);
+      drawRiskChart(riskHistory);
+    }
+
+    async function load() {
+      setText("live-label", "Refreshing");
+      try {
+        const res = await fetch("/api/summary", { cache: "no-store" });
+        if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
+        const data = await res.json();
+
+        setText("price", data.price.value == null ? "—" : fmtUsd.format(data.price.value));
+        setText("price-agreement", `${data.price.agreement}${data.price.spread == null ? "" : ` · source spread ${fmtUsd.format(data.price.spread)}`}`);
+        $("price-sources").innerHTML = data.price.sources.map(sourcePill).join("");
+
+        setText("height", data.blockHeight.value == null ? "—" : fmtInt.format(data.blockHeight.value));
+        setText("height-agreement", data.blockHeight.agreement);
+
+        setText("fee-fastest", data.fees.fastestFee);
+        setText("fee-halfhour", data.fees.halfHourFee);
+        setText("fee-hour", data.fees.hourFee);
+        setText("fee-minimum", data.fees.minimumFee);
+
+        setText("hashrate", data.mining.hashrateEhS == null ? "—" : fmtNum.format(data.mining.hashrateEhS));
+        setText("unmined", data.supply?.unmined == null ? "—" : fmtNum.format(data.supply.unmined));
+        setText("supply", data.supply ? `${fmtNum.format(data.supply.currentSupply)} mined of 21,000,000` : "—");
+
+        setText("halving", data.supply ? new Date(data.supply.nextHalvingEta).toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" }) : "—");
+        setText("blocks-left", data.supply ? `${fmtInt.format(data.supply.blocksUntilHalving)} blocks left` : "—");
+
+        setText("last-updated", `Updated ${new Date(data.generatedAt).toLocaleTimeString()}`);
+        setText("live-label", "Live");
+        $("raw").textContent = JSON.stringify(data, null, 2);
+      } catch (error) {
+        setText("live-label", "Error");
+        $("live-dot").style.background = "var(--red)";
+        $("raw").textContent = error.stack || error.message;
+      }
+    }
+
+    $("refresh").addEventListener("click", () => {
+      load();
+      loadBmri().catch((error) => setText("bmri-note", error.stack || error.message));
+      loadRisk().catch((error) => setText("risk-note", error.stack || error.message));
+    });
+    $("refresh-bmri").addEventListener("click", () => {
+      loadBmri().catch((error) => setText("bmri-note", error.stack || error.message));
+    });
+    document.querySelectorAll("[data-bmri-range]").forEach((button) => {
+      button.addEventListener("click", () => {
+        bmriRangeDays = button.dataset.bmriRange === "all" ? "all" : Number(button.dataset.bmriRange);
+        document.querySelectorAll("[data-bmri-range]").forEach((b) => b.classList.toggle("active", b === button));
+        drawBmriChart(bmriHistory);
+      });
+    });
+    $("refresh-risk").addEventListener("click", () => {
+      loadRisk().catch((error) => setText("risk-note", error.stack || error.message));
+    });
+    document.querySelectorAll("[data-risk-range]").forEach((button) => {
+      button.addEventListener("click", () => {
+        riskRangeDays = button.dataset.riskRange === "all" ? "all" : Number(button.dataset.riskRange);
+        document.querySelectorAll("[data-risk-range]").forEach((b) => b.classList.toggle("active", b === button));
+        drawRiskChart(riskHistory);
+      });
+    });
+    $("toggle-bmri-raw").addEventListener("click", () => {
+      const raw = $("bmri-raw");
+      const hidden = raw.style.display === "none";
+      if (hidden && bmriData) raw.textContent = JSON.stringify(bmriData, null, 2);
+      raw.style.display = hidden ? "block" : "none";
+      $("toggle-bmri-raw").textContent = hidden ? "Hide BMRI raw" : "Show BMRI raw";
+    });
+    $("toggle-risk-raw").addEventListener("click", () => {
+      const raw = $("risk-raw");
+      const hidden = raw.style.display === "none";
+      if (hidden && riskData) raw.textContent = JSON.stringify(riskData, null, 2);
+      raw.style.display = hidden ? "block" : "none";
+      $("toggle-risk-raw").textContent = hidden ? "Hide risk raw" : "Show risk raw";
+    });
+    $("toggle-raw").addEventListener("click", () => {
+      const raw = $("raw");
+      const hidden = raw.style.display === "none";
+      raw.style.display = hidden ? "block" : "none";
+      $("toggle-raw").textContent = hidden ? "Hide raw" : "Show raw";
+    });
+
+    load();
+    loadBmri().catch((error) => setText("bmri-note", error.stack || error.message));
+    loadRisk().catch((error) => setText("risk-note", error.stack || error.message));
+    setInterval(load, 60_000);
+    setInterval(() => loadBmri().catch((error) => setText("bmri-note", error.stack || error.message)), 6 * 60 * 60 * 1000);
+    setInterval(() => loadRisk().catch((error) => setText("risk-note", error.stack || error.message)), 6 * 60 * 60 * 1000);
+  </script>
+</body>
+</html>
