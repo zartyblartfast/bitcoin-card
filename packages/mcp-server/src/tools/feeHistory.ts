@@ -2,15 +2,14 @@ import { z } from "zod";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { getFeeHistory } from "../../../data/src/index.js";
 
+const FeeHistoryRangeSchema = z.enum(["24h", "3d", "1w", "1m", "3m", "6m", "1y", "2y", "3y"]);
+
 export function registerFeeHistory(server: McpServer): void {
   server.tool(
     "get_fee_history",
-    "Get historical mempool fee data. Supported ranges: 24h and 1w return real bucketed data. Note: 1m, 1y, and 2y ranges return partial: true with empty points - daily accumulation starts in v0.2.0.",
+    "Get historical Bitcoin fee-rate distribution bands from mempool.space via Bitcoin Card. Supported ranges: 24h, 3d, 1w, 1m, 3m, 6m, 1y, 2y, 3y. Returns percentile bands: minFee, p10Fee, p25Fee, medianFee, p75Fee, p90Fee, maxFee, plus source/caveat metadata.",
     {
-      range: z
-        .enum(["24h", "1w", "1m", "1y", "2y"])
-        .default("24h")
-        .describe("Time range (24h, 1w return real data; 1m, 1y, 2y return partial)"),
+      range: FeeHistoryRangeSchema.default("24h").describe("Time range: 24h, 3d, 1w, 1m, 3m, 6m, 1y, 2y, or 3y"),
     },
     async ({ range }) => {
       const result = await getFeeHistory(range);

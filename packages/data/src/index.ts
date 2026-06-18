@@ -3,6 +3,7 @@ export { getPrice } from "./getPrice.js";
 export { getBlockHeight } from "./getBlockHeight.js";
 export { getMempoolFees } from "./getMempoolFees.js";
 export { getFeeHistory } from "./getFeeHistory.js";
+export { getFeeProfile } from "./getFeeProfile.js";
 export { getNetworkSummary } from "./getNetworkSummary.js";
 export { getDcaMetrics, zoneFromMeanReversionIndex } from "./getDcaMetrics.js";
 export {

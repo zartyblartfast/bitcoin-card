@@ -3,8 +3,9 @@ import { z } from "zod";
 export const CurrencySchema = z.enum(["USD", "EUR", "GBP"]);
 export type Currency = z.infer<typeof CurrencySchema>;
 
-export const FeeRangeSchema = z.enum(["24h", "1w", "1m", "1y", "2y"]);
+export const FeeRangeSchema = z.enum(["24h", "3d", "1w", "1m", "3m", "6m", "1y", "2y", "3y"]);
 export type FeeRange = z.infer<typeof FeeRangeSchema>;
+export type DcaCadence = "daily" | "weekly" | "monthly";
 
 export interface SourceResult<T> {
   source: string;
@@ -39,17 +40,57 @@ export interface MempoolFees extends MempoolFeesValue {
   fetchedAt: string;
 }
 
-export interface FeeHistoryPoint {
+export interface FeeHistoryBandPoint {
   t: string; // ISO timestamp
-  fee: number; // sat/vB
+  minFee: number;
+  p10Fee: number;
+  p25Fee: number;
+  medianFee: number;
+  p75Fee: number;
+  p90Fee: number;
+  maxFee: number;
 }
 
 export interface FeeHistory {
   range: FeeRange;
-  points: FeeHistoryPoint[];
+  points: FeeHistoryBandPoint[];
   source: string;
+  sourceQuality: string;
   partial: boolean; // true when data accumulation still in progress
   note?: string;
+  fetchedAt: string;
+}
+
+export type FeeRegime = "quiet" | "normal" | "elevated" | "congested" | "extreme";
+
+export interface FeeProfileRequest {
+  cadence: DcaCadence;
+  buyAmountUsd: number;
+  targetVbytes?: number;
+}
+
+export interface FeeProfile {
+  cadence: DcaCadence;
+  buyAmountUsd: number;
+  targetVbytes: number;
+  recommendedSatVb: number;
+  estimatedFeeUsd: number;
+  estimatedFeePctOfBuy: number;
+  confidence: number;
+  regime: FeeRegime;
+  reason: string;
+  currentFees: MempoolFeesValue;
+  historySummary: {
+    range: FeeRange;
+    p10Fee: number;
+    medianFee: number;
+    p90Fee: number;
+    partial: boolean;
+  };
+  source: string;
+  sourceQuality: string;
+  limitations: string;
+  fetchedAt: string;
 }
 
 export interface NetworkSummary {

@@ -32,7 +32,8 @@ Main tools:
 | `get_network_summary` | Price, block height, hashrate, difficulty, unmined BTC, and next halving ETA. |
 | `get_bitcoin_price` | Current BTC price, verified across Coinbase and Kraken. |
 | `get_mempool_fees` | Current fastest, 30-minute, 1-hour, and minimum fees in sat/vB. |
-| `get_fee_history` | Fee history for `24h`, `1w`, `1m`, `1y`, or `2y`; long ranges are currently partial. |
+| `get_fee_history` | Fee-rate percentile bands for `24h`, `3d`, `1w`, `1m`, `3m`, `6m`, `1y`, `2y`, or `3y`. |
+| `get_fee_profile` | Patient DCA fee recommendation with sat/vB target, estimated USD fee, and fee as % of planned buy. |
 
 Recommended app flow:
 
@@ -75,6 +76,28 @@ Includes:
 - Current supply, unmined BTC, blocks until halving, and estimated next halving time.
 
 Use this endpoint for general Bitcoin metrics screens.
+
+### `GET /api/fee-history`
+
+Returns fee-rate percentile bands for charting:
+
+```bash
+curl 'http://127.0.0.1:8787/api/fee-history?range=1w'
+```
+
+Supported ranges: `24h`, `3d`, `1w`, `1m`, `3m`, `6m`, `1y`, `2y`, `3y`.
+
+Each point includes `minFee`, `p10Fee`, `p25Fee`, `medianFee`, `p75Fee`, `p90Fee`, and `maxFee` in sat/vB. Responses include `source`, `sourceQuality`, `partial`, optional `note`, and `fetchedAt`.
+
+### `GET /api/fee-profile`
+
+Returns a patient DCA fee recommendation:
+
+```bash
+curl 'http://127.0.0.1:8787/api/fee-profile?cadence=weekly&buyAmountUsd=100&targetVbytes=140'
+```
+
+Includes `recommendedSatVb`, `estimatedFeeUsd`, `estimatedFeePctOfBuy`, `confidence`, `regime`, `reason`, `currentFees`, and `historySummary`. Fee targets are probabilistic estimates, not guaranteed confirmation times.
 
 ### `GET /api/bitcoin-risk`
 
@@ -167,13 +190,38 @@ The TypeScript interfaces in `packages/data/src/types.ts` are the source of trut
 
 | Field | Meaning |
 | --- | --- |
-| `range` | Requested range: `24h`, `1w`, `1m`, `1y`, or `2y`. |
-| `points[]` | Fee datapoints, each `{ t, fee }`. |
-| `points[].t` | ISO timestamp for the datapoint. |
-| `points[].fee` | Fee in sat/vB. |
-| `source` | Data source name. |
-| `partial` | `true` when history is incomplete or still being accumulated. |
-| `note` | Optional explanation, especially for partial ranges. |
+| `range` | Requested range: `24h`, `3d`, `1w`, `1m`, `3m`, `6m`, `1y`, `2y`, or `3y`. |
+| `points[]` | Fee-rate percentile-band datapoints. |
+| `points[].t` | ISO timestamp for the bucket/datapoint. |
+| `points[].minFee` | Minimum / lowest observed fee for the bucket, sat/vB. |
+| `points[].p10Fee` | Approximate 10th percentile fee, sat/vB. |
+| `points[].p25Fee` | Approximate 25th percentile fee, sat/vB. |
+| `points[].medianFee` | Median fee, sat/vB. |
+| `points[].p75Fee` | Approximate 75th percentile fee, sat/vB. |
+| `points[].p90Fee` | Approximate 90th percentile fee, sat/vB. |
+| `points[].maxFee` | Maximum / highest observed fee for the bucket, sat/vB. |
+| `source` | Data source name. Primary source is `mempool.space`; fallback is recent-block-derived. |
+| `sourceQuality` | Source quality label, e.g. `public-api-fee-rate-bands` or `recent-block-derived-fee-bands`. |
+| `partial` | `true` when coverage is incomplete, sparse, approximate, or a fallback was used. |
+| `note` | Optional user-facing explanation, especially for partial ranges. |
+| `fetchedAt` | Response timestamp. |
+
+### `get_fee_profile`
+
+| Field | Meaning |
+| --- | --- |
+| `cadence` | Requested DCA cadence: `daily`, `weekly`, or `monthly`. |
+| `buyAmountUsd` | Planned buy amount used to calculate fee as % of buy. |
+| `targetVbytes` | Estimated transaction virtual size, default `140`. |
+| `recommendedSatVb` | Recommended realistic low-fee target for the cadence, sat/vB. |
+| `estimatedFeeUsd` | Estimated network fee at the recommended target. |
+| `estimatedFeePctOfBuy` | `estimatedFeeUsd / buyAmountUsd * 100`. |
+| `confidence` | 0.0–1.0 confidence that the target is realistic for the cadence. |
+| `regime` | Current/recent fee environment: `quiet`, `normal`, `elevated`, `congested`, or `extreme`. |
+| `reason` | Plain-English explanation suitable for UI display. |
+| `currentFees` | Current fastest, half-hour, hour, and minimum fee tiers. |
+| `historySummary` | Fee-history range and p10/median/p90 context used for the recommendation. |
+| `source`, `sourceQuality`, `limitations`, `fetchedAt` | Provenance and caveats. |
 
 ### `get_network_summary`
 
@@ -295,7 +343,8 @@ The TypeScript interfaces in `packages/data/src/types.ts` are the source of trut
 - Price and block height are cross-source checked and return agreement status.
 - Full BMRI currently depends on embedded public Checkonchain chart data, not an official Checkonchain API.
 - BMRI-lite is transparent and reproducible, but approximate.
-- Fee history for `1m`, `1y`, and `2y` is currently marked partial until daily accumulation is added.
+- Fee history uses mempool.space fee-rate band history when available. Fallbacks are marked `partial: true` with a note; apps should not present partial/sparse fee history as authoritative.
+- Fee profile recommendations estimate realistic low-fee targets for patient DCA campaigns. They are probabilistic and should use `estimated`, `likely`, or `realistic`, not guaranteed confirmation wording.
 - Apps should show `fetchedAt`, source names, and caveats rather than presenting values as opaque numbers.
 
 ## Minimal app recommendation

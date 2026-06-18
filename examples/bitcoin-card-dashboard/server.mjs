@@ -3,7 +3,7 @@ import { createServer } from "node:http";
 import { readFile } from "node:fs/promises";
 import { extname, join, normalize } from "node:path";
 import { fileURLToPath } from "node:url";
-import { getBitcoinRisk, getMeanReversionIndex } from "../../packages/data/dist/index.js";
+import { getBitcoinRisk, getFeeHistory, getFeeProfile, getMeanReversionIndex } from "../../packages/data/dist/index.js";
 
 const __dirname = fileURLToPath(new URL(".", import.meta.url));
 const PORT = Number(process.env.PORT || 8787);
@@ -13,6 +13,8 @@ const TOTAL_CAP = 21_000_000;
 const INITIAL_REWARD = 50;
 const CHECKONCHAIN_BMRI_URL = "https://charts.checkonchain.com/btconchain/pricing/meanreversion_index/meanreversion_index_light.html";
 const BMRI_CACHE_MS = 6 * 60 * 60 * 1000;
+const FEE_HISTORY_RANGES = new Set(["24h", "3d", "1w", "1m", "3m", "6m", "1y", "2y", "3y"]);
+const DCA_CADENCES = new Set(["daily", "weekly", "monthly"]);
 let bmriCache = null;
 
 const contentTypes = {
@@ -29,6 +31,10 @@ function json(res, status, body) {
     "cache-control": "no-store",
   });
   res.end(JSON.stringify(body, null, 2));
+}
+
+function badRequest(res, message) {
+  json(res, 400, { error: message });
 }
 
 async function fetchJson(url, parser = x => x) {
@@ -371,15 +377,33 @@ async function serveStatic(req, res) {
 
 const server = createServer(async (req, res) => {
   try {
-    if (req.url?.startsWith("/api/summary")) {
+    const url = new URL(req.url || "/", `http://${req.headers.host || "127.0.0.1"}`);
+    if (url.pathname === "/api/summary") {
       json(res, 200, await getSummary());
       return;
     }
-    if (req.url?.startsWith("/api/bmri-comparison")) {
+    if (url.pathname === "/api/fee-history") {
+      const range = url.searchParams.get("range") || "24h";
+      if (!FEE_HISTORY_RANGES.has(range)) return badRequest(res, `Unsupported fee history range: ${range}`);
+      json(res, 200, await getFeeHistory(range));
+      return;
+    }
+    if (url.pathname === "/api/fee-profile") {
+      const cadence = url.searchParams.get("cadence");
+      const buyAmountUsd = Number(url.searchParams.get("buyAmountUsd"));
+      const targetVbytesParam = url.searchParams.get("targetVbytes");
+      const targetVbytes = targetVbytesParam == null ? undefined : Number(targetVbytesParam);
+      if (!cadence || !DCA_CADENCES.has(cadence)) return badRequest(res, "cadence must be daily, weekly, or monthly");
+      if (!Number.isFinite(buyAmountUsd) || buyAmountUsd <= 0) return badRequest(res, "buyAmountUsd must be positive");
+      if (targetVbytes !== undefined && (!Number.isFinite(targetVbytes) || targetVbytes <= 0)) return badRequest(res, "targetVbytes must be positive");
+      json(res, 200, await getFeeProfile({ cadence, buyAmountUsd, ...(targetVbytes === undefined ? {} : { targetVbytes }) }));
+      return;
+    }
+    if (url.pathname === "/api/bmri-comparison") {
       json(res, 200, await getMeanReversionIndex());
       return;
     }
-    if (req.url?.startsWith("/api/bitcoin-risk")) {
+    if (url.pathname === "/api/bitcoin-risk") {
       json(res, 200, await getBitcoinRisk());
       return;
     }

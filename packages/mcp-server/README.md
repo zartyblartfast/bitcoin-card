@@ -41,7 +41,8 @@ Then restart your AI client and ask: *"What's the current Bitcoin price and bloc
 | `get_bitcoin_price` | Spot price, cross-source verified across Coinbase and Kraken |
 | `get_block_height` | Current tip, verified across mempool.space and Blockstream |
 | `get_mempool_fees` | 4 fee tiers (fastest, 30-min, 1-hour, minimum) in sat/vB |
-| `get_fee_history` | 24h or 1w of bucketed fee data |
+| `get_fee_history` | Fee-rate percentile bands for 24h, 3d, 1w, 1m, 3m, 6m, 1y, 2y, or 3y |
+| `get_fee_profile` | Patient DCA fee recommendation with estimated USD fee and fee % of buy |
 | `get_network_summary` | One-shot bundle: price, height, hashrate, difficulty, unmined, halving ETA |
 | `get_unmined_supply` | Pure halving-schedule derivation with verifiable formula |
 | `get_bitcoin_risk` | Coin Metrics Community API-derived MVRV Z-Score risk proxy with local 0-100 score, band, daily cache, plus separate Alternative.me Fear & Greed sentiment when available |
@@ -97,13 +98,25 @@ Returns `MempoolFees`: `{ fastestFee, halfHourFee, hourFee, minimumFee, sources[
 
 ### `get_fee_history(range?)`
 
-Get historical mempool fee data.
+Get historical mempool fee-rate distribution bands from Bitcoin Card.
 
-- `range` (optional, default `"24h"`) - `"24h" | "1w" | "1m" | "1y" | "2y"`
+- `range` (optional, default `"24h"`) - `"24h" | "3d" | "1w" | "1m" | "3m" | "6m" | "1y" | "2y" | "3y"`
 
-Returns `FeeHistory`: `{ range, points: [{ t, fee }], source, partial, note? }`.
+Returns `FeeHistory`: `{ range, points: [{ t, minFee, p10Fee, p25Fee, medianFee, p75Fee, p90Fee, maxFee }], source, sourceQuality, partial, note?, fetchedAt }`.
 
-Note: `1m`, `1y`, and `2y` ranges currently return `{ partial: true, points: [] }` with a note explaining the daily-accumulation cron is planned for v0.2.0.
+Primary source is mempool.space `/v1/mining/blocks/fee-rates/{range}`. If unavailable, Bitcoin Card may return a recent-block-derived partial fallback with a note.
+
+### `get_fee_profile(cadence, buyAmountUsd, targetVbytes?)`
+
+Get a realistic low-fee target for a patient DCA campaign.
+
+- `cadence` - `"daily" | "weekly" | "monthly"`
+- `buyAmountUsd` - planned buy amount in USD
+- `targetVbytes` (optional, default `140`) - estimated transaction virtual size
+
+Returns `FeeProfile`: `{ recommendedSatVb, estimatedFeeUsd, estimatedFeePctOfBuy, confidence, regime, reason, currentFees, historySummary, source, sourceQuality, limitations, fetchedAt }`.
+
+Fee recommendations are probabilistic. They estimate realistic low-fee targets; they do not guarantee confirmation time.
 
 ### `get_network_summary()`
 

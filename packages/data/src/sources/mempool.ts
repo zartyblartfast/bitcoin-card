@@ -22,8 +22,20 @@ const BlockSchema = z.object({
   medianFee: z.number().optional(),
   feeRange: z.tuple([z.number(), z.number()]).optional(),
 });
+const FeeRateHistoryRowSchema = z.object({
+  avgHeight: z.number().optional(),
+  timestamp: z.number().int().positive(),
+  avgFee_0: z.number(),
+  avgFee_10: z.number(),
+  avgFee_25: z.number(),
+  avgFee_50: z.number(),
+  avgFee_75: z.number(),
+  avgFee_90: z.number(),
+  avgFee_100: z.number(),
+});
 
 export type MempoolBlock = z.infer<typeof BlockSchema>;
+export type MempoolFeeRateHistoryRow = z.infer<typeof FeeRateHistoryRowSchema>;
 
 /**
  * Raw fees shape returned by the mempool.space `/v1/fees/recommended` endpoint.
@@ -82,4 +94,10 @@ export async function fetchRecentBlocks(count: number): Promise<SourceResult<Mem
   const url = `${BASE}/v1/blocks/tip/${count}`;
   const value = z.array(BlockSchema).parse(await getJson<unknown>(url));
   return { source: "mempool", value, fetchedAt: new Date().toISOString() };
+}
+
+export async function fetchFeeRateHistory(range: string): Promise<SourceResult<MempoolFeeRateHistoryRow[]>> {
+  const url = `${BASE}/v1/mining/blocks/fee-rates/${range}`;
+  const value = z.array(FeeRateHistoryRowSchema).parse(await getJson<unknown>(url));
+  return { source: "mempool.space", value, fetchedAt: new Date().toISOString() };
 }

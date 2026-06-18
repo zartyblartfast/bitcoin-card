@@ -5,6 +5,7 @@ import { registerBitcoinRisk } from "./tools/bitcoinRisk.js";
 import { registerBlockHeight } from "./tools/blockHeight.js";
 import { registerMempoolFees } from "./tools/mempoolFees.js";
 import { registerFeeHistory } from "./tools/feeHistory.js";
+import { registerFeeProfile } from "./tools/feeProfile.js";
 import { registerNetworkSummary } from "./tools/networkSummary.js";
 import { registerUnminedSupply } from "./tools/unminedSupply.js";
 import { registerMeanReversionIndex } from "./tools/meanReversionIndex.js";
@@ -22,6 +23,7 @@ export function createServer(): McpServer {
   registerBlockHeight(server);
   registerMempoolFees(server);
   registerFeeHistory(server);
+  registerFeeProfile(server);
   registerNetworkSummary(server);
   registerUnminedSupply(server);
   registerMeanReversionIndex(server);

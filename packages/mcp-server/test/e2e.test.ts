@@ -109,7 +109,7 @@ describe("MCP server e2e", () => {
     globalThis.fetch = originalFetch;
   });
 
-  it("registers all 9 tools and the prompt", async () => {
+  it("registers all 10 tools and the prompt", async () => {
     const { client } = await makeClient();
     try {
       const { tools } = await client.listTools();
@@ -121,6 +121,7 @@ describe("MCP server e2e", () => {
         "get_block_height",
         "get_dca_metrics",
         "get_fee_history",
+        "get_fee_profile",
         "get_mempool_fees",
         "get_network_summary",
         "get_unmined_supply",
@@ -196,18 +197,57 @@ describe("MCP server e2e", () => {
     }
   });
 
-  it("get_fee_history returns partial=true for 1y range", async () => {
+  it("get_fee_history returns percentile-band history", async () => {
+    vi.mocked(globalThis.fetch).mockResolvedValue(
+      new Response(JSON.stringify([
+        { timestamp: 1781395200, avgFee_0: 1, avgFee_10: 2, avgFee_25: 3, avgFee_50: 5, avgFee_75: 8, avgFee_90: 13, avgFee_100: 21 },
+      ]), { status: 200 }),
+    );
+
     const { client } = await makeClient();
     try {
       const result = await client.callTool({
         name: "get_fee_history",
-        arguments: { range: "1y" },
+        arguments: { range: "1w" },
       });
       const text = (result.content as Array<{ type: string; text: string }>)[0]!.text;
       const parsed = JSON.parse(text);
-      expect(parsed.range).toBe("1y");
-      expect(parsed.partial).toBe(true);
-      expect(parsed.points).toEqual([]);
+      expect(parsed.range).toBe("1w");
+      expect(parsed.sourceQuality).toBe("public-api-fee-rate-bands");
+      expect(parsed.points[0]).toMatchObject({ minFee: 1, p10Fee: 2, p25Fee: 3, medianFee: 5, p75Fee: 8, p90Fee: 13, maxFee: 21 });
+    } finally {
+      await client.close();
+    }
+  });
+
+  it("get_fee_profile returns a patient DCA fee recommendation", async () => {
+    vi.mocked(globalThis.fetch).mockImplementation(async (input) => {
+      const url = String(input);
+      if (url.includes("fee-rates/1w")) {
+        return new Response(JSON.stringify([
+          { timestamp: 1781395200, avgFee_0: 1, avgFee_10: 2, avgFee_25: 3, avgFee_50: 5, avgFee_75: 8, avgFee_90: 13, avgFee_100: 21 },
+        ]), { status: 200 });
+      }
+      if (url.includes("fees/recommended")) {
+        return new Response(JSON.stringify({ fastestFee: 12, halfHourFee: 8, hourFee: 6, minimumFee: 2 }), { status: 200 });
+      }
+      if (url.includes("coinbase")) return new Response(coinbaseBody("100000"), { status: 200 });
+      if (url.includes("kraken")) return new Response(krakenBody("100000"), { status: 200 });
+      return new Response("not found", { status: 404 });
+    });
+
+    const { client } = await makeClient();
+    try {
+      const result = await client.callTool({ name: "get_fee_profile", arguments: { cadence: "weekly", buyAmountUsd: 100 } });
+      const text = (result.content as Array<{ type: string; text: string }>)[0]!.text;
+      const parsed = JSON.parse(text);
+      expect(parsed.cadence).toBe("weekly");
+      expect(parsed.recommendedSatVb).toBe(3);
+      expect(parsed.estimatedFeeUsd).toBeCloseTo(0.42);
+      expect(parsed.estimatedFeePctOfBuy).toBeCloseTo(0.42);
+      expect(parsed.confidence).toBeGreaterThanOrEqual(0);
+      expect(parsed.confidence).toBeLessThanOrEqual(1);
+      expect(parsed.reason).toMatch(/weekly/i);
     } finally {
       await client.close();
     }

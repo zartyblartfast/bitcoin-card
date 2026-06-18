@@ -37,6 +37,8 @@ The browser calls the local server endpoints; the local server fetches public AP
 ## Local endpoints
 
 - `/api/summary` — price, block height, fees, mining, supply, halving context.
+- `/api/fee-history?range=1w` — fee-rate percentile bands for supported ranges: `24h`, `3d`, `1w`, `1m`, `3m`, `6m`, `1y`, `2y`, `3y`.
+- `/api/fee-profile?cadence=weekly&buyAmountUsd=100&targetVbytes=140` — patient DCA fee recommendation with estimated USD fee and fee as % of planned buy.
 - `/api/bmri-comparison` — Full Checkonchain BMRI versus transparent BMRI-lite.
 - `/api/bitcoin-risk` — bitcoin-card's native 0-100 Bitcoin Risk composite.
 
