@@ -1,16 +1,26 @@
 #!/usr/bin/env python3
 import json
 import sys
+import time
 from pathlib import Path
 from urllib.request import urlopen
 
 url = "http://127.0.0.1:8787/ready"
 state_path = Path("/var/lib/bitcoin-card-dashboard/ready-state.json")
 try:
-    with urlopen(url, timeout=30) as response:
-        if response.status != 200:
-            raise RuntimeError(f"/ready returned HTTP {response.status}")
-        payload = json.load(response)
+    last_error = None
+    for _ in range(30):
+        try:
+            with urlopen(url, timeout=5) as response:
+                if response.status != 200:
+                    raise RuntimeError(f"/ready returned HTTP {response.status}")
+                payload = json.load(response)
+            break
+        except Exception as error:
+            last_error = error
+            time.sleep(1)
+    else:
+        raise RuntimeError(f"/ready did not become available: {last_error}")
     if payload.get("status") != "ready":
         raise RuntimeError(f"unexpected readiness status: {payload.get('status')!r}")
     if payload.get("sourceQuality") != "community-api-derived":
