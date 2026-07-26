@@ -6,6 +6,7 @@ import {
   riskBandFromMvrvZScore,
   riskScoreFromMvrvZScore,
 } from "../src/getBitcoinRisk.js";
+import { COIN_METRICS_DAILY_HISTORY_URL } from "../src/coinMetricsDailyHistory.js";
 
 const originalFetch = globalThis.fetch;
 
@@ -19,6 +20,7 @@ function coinMetricsMvrvFixture(latestMvrv = "1.15") {
         CapMVRVCur: "1.0",
         PriceUSD: "100",
         IssTotUSD: "100",
+        SplyCur: "20",
         FeeTotNtv: "1",
       },
       {
@@ -28,6 +30,7 @@ function coinMetricsMvrvFixture(latestMvrv = "1.15") {
         CapMVRVCur: "1.0",
         PriceUSD: "150",
         IssTotUSD: "200",
+        SplyCur: "20",
         FeeTotNtv: "2",
       },
       {
@@ -37,6 +40,7 @@ function coinMetricsMvrvFixture(latestMvrv = "1.15") {
         CapMVRVCur: latestMvrv,
         PriceUSD: "300",
         IssTotUSD: "400",
+        SplyCur: "20",
         FeeTotNtv: "4",
       },
     ],
@@ -125,6 +129,18 @@ describe("getBitcoinRisk", () => {
     expect(result.fetchedAt).toBe("2026-06-14T12:00:00.000Z");
   });
 
+  it("uses the shared Coin Metrics daily-history request including supply", async () => {
+    const fetchMock = globalThis.fetch as ReturnType<typeof vi.fn>;
+    fetchMock
+      .mockResolvedValueOnce(new Response(JSON.stringify(coinMetricsMvrvFixture()), { status: 200 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify(alternativeMeFngFixture()), { status: 200 }));
+
+    await getBitcoinRisk();
+
+    expect(fetchMock.mock.calls[0]![0]).toBe(COIN_METRICS_DAILY_HISTORY_URL);
+    expect(COIN_METRICS_DAILY_HISTORY_URL).toContain("SplyCur");
+  });
+
   it("caches the daily value in-process so repeated calls do not spend upstream requests", async () => {
     const fetchMock = globalThis.fetch as ReturnType<typeof vi.fn>;
     fetchMock
@@ -176,25 +192,25 @@ describe("getBitcoinRisk", () => {
       }),
     );
 
-    await expect(getBitcoinRisk()).rejects.toThrow(/too few usable rows/i);
+    await expect(getBitcoinRisk()).rejects.toThrow(/missing PriceUSD/i);
   });
 
-  it("skips sparse Coin Metrics rows that predate required metric availability", () => {
+  it("rejects sparse Coin Metrics rows that lack shared required fields", () => {
     const fixture = coinMetricsMvrvFixture();
-    const result = parseCoinMetricsMvrvHistory(
-      {
-        data: [
-          { asset: "btc", time: "2009-01-03T00:00:00.000000000Z", IssTotUSD: "0" },
-          fixture.data[0],
-          fixture.data[1],
-          fixture.data[2],
-        ],
-      },
-      "2026-06-14T12:00:00.000Z",
-    );
 
-    expect(result.history).toHaveLength(3);
-    expect(result.history[0]!.date).toBe("2026-06-10");
+    expect(() =>
+      parseCoinMetricsMvrvHistory(
+        {
+          data: [
+            fixture.data[0],
+            { asset: "btc", time: "2026-06-11T00:00:00.000000000Z", IssTotUSD: "0" },
+            fixture.data[1],
+            fixture.data[2],
+          ],
+        },
+        "2026-06-14T12:00:00.000Z",
+      ),
+    ).toThrow(/missing PriceUSD/i);
   });
 
   it("parses unsorted history and uses the latest row by timestamp", () => {

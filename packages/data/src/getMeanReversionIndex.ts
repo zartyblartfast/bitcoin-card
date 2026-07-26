@@ -1,7 +1,7 @@
 import type { MeanReversionHistoryPoint, MeanReversionIndex } from "./types.js";
 
 export const CHECKONCHAIN_BMRI_URL =
-  "https://charts.checkonchain.com/btconchain/pricing/meanreversion_index/meanreversion_index_light.html";
+  "https://charts-cdn.checkonchain.com/btconchain/pricing/meanreversion_index/meanreversion_index_light.html";
 
 const FULL_ANCHORS = [
   "200DMA",
@@ -193,7 +193,7 @@ function optionalLatest(series: Record<string, Series>, name: string, day: strin
   return series[name]?.get(day) ?? null;
 }
 
-export function parseCheckonchainMeanReversionHtml(html: string): MeanReversionIndex {
+export function parseCheckonchainMeanReversionComparisonHtml(html: string): MeanReversionIndex {
   const traces = extractJsonArrayAfter(html, "Plotly.newPlot(") as PlotlyTrace[];
   const series = Object.fromEntries(
     traces.map(trace => [trace.name || "(blank)", seriesFromTrace(trace)]),
@@ -267,7 +267,7 @@ export function parseCheckonchainMeanReversionHtml(html: string): MeanReversionI
   };
 }
 
-export async function getMeanReversionIndex(): Promise<MeanReversionIndex> {
+export async function getCheckonchainMeanReversionComparison(): Promise<MeanReversionIndex> {
   const html = await fetchText(CHECKONCHAIN_BMRI_URL);
-  return parseCheckonchainMeanReversionHtml(html);
+  return parseCheckonchainMeanReversionComparisonHtml(html);
 }

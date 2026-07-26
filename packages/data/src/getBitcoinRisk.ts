@@ -1,29 +1,16 @@
+import { COIN_METRICS_DAILY_HISTORY_URL, getCoinMetricsDailyHistory, parseCoinMetricsDailyHistory } from "./coinMetricsDailyHistory.js";
 import type {
   BitcoinRisk,
   BitcoinRiskBand,
   BitcoinRiskComponents,
   BitcoinRiskHistoryPoint,
   BitcoinSentiment,
+  CoinMetricsDailyHistoryRow,
 } from "./types.js";
 
-export const COIN_METRICS_MVRV_HISTORY_URL =
-  "https://community-api.coinmetrics.io/v4/timeseries/asset-metrics?assets=btc&metrics=CapMrktCurUSD,CapMVRVCur,PriceUSD,IssTotUSD,FeeTotNtv&frequency=1d&page_size=10000";
+export const COIN_METRICS_MVRV_HISTORY_URL = COIN_METRICS_DAILY_HISTORY_URL;
 
 export const ALTERNATIVE_ME_FEAR_GREED_URL = "https://api.alternative.me/fng/?limit=1&format=json";
-
-type CoinMetricsMvrvHistoryResponse = {
-  data?: unknown;
-};
-
-type CoinMetricsMvrvHistoryRow = {
-  asset?: unknown;
-  time?: unknown;
-  CapMrktCurUSD?: unknown;
-  CapMVRVCur?: unknown;
-  PriceUSD?: unknown;
-  IssTotUSD?: unknown;
-  FeeTotNtv?: unknown;
-};
 
 type AlternativeMeFearGreedResponse = {
   data?: unknown;
@@ -33,17 +20,6 @@ type AlternativeMeFearGreedRow = {
   value?: unknown;
   value_classification?: unknown;
   timestamp?: unknown;
-};
-
-type ParsedMvrvHistoryRow = {
-  date: string;
-  unixTs: number;
-  marketCapUsd: number;
-  mvrv: number;
-  realizedCapUsd: number;
-  priceUsd: number;
-  issuanceUsd: number;
-  feeTotalBtc?: number;
 };
 
 type CachedBitcoinRisk = {
@@ -62,67 +38,6 @@ function assertFiniteNumber(value: number, field: string): number {
     throw new Error(`Coin Metrics BTC MVRV history contains invalid ${field}`);
   }
   return value;
-}
-
-function parseNumericString(value: unknown, field: string): number {
-  if (typeof value !== "string" && typeof value !== "number") {
-    throw new Error(`Coin Metrics BTC MVRV history missing ${field}`);
-  }
-  const parsed = Number(value);
-  return assertFiniteNumber(parsed, field);
-}
-
-function parseCoinMetricsDate(value: unknown): { date: string; unixTs: number } {
-  if (typeof value !== "string") {
-    throw new Error("Coin Metrics BTC MVRV history missing time");
-  }
-
-  const date = value.slice(0, 10);
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
-    throw new Error("Coin Metrics BTC MVRV history contains invalid time");
-  }
-
-  const unixTs = Date.parse(value) / 1000;
-  if (!Number.isFinite(unixTs)) {
-    throw new Error("Coin Metrics BTC MVRV history contains unparsable time");
-  }
-
-  return { date, unixTs };
-}
-
-function hasRequiredCoinMetricsFields(row: CoinMetricsMvrvHistoryRow): boolean {
-  return (
-    typeof row.time === "string" &&
-    (typeof row.CapMrktCurUSD === "string" || typeof row.CapMrktCurUSD === "number") &&
-    (typeof row.CapMVRVCur === "string" || typeof row.CapMVRVCur === "number") &&
-    (typeof row.PriceUSD === "string" || typeof row.PriceUSD === "number") &&
-    (typeof row.IssTotUSD === "string" || typeof row.IssTotUSD === "number")
-  );
-}
-
-function parseHistoryRow(row: CoinMetricsMvrvHistoryRow): ParsedMvrvHistoryRow {
-  const { date, unixTs } = parseCoinMetricsDate(row.time);
-  const marketCapUsd = parseNumericString(row.CapMrktCurUSD, "CapMrktCurUSD");
-  const mvrv = parseNumericString(row.CapMVRVCur, "CapMVRVCur");
-  const priceUsd = parseNumericString(row.PriceUSD, "PriceUSD");
-  const issuanceUsd = parseNumericString(row.IssTotUSD, "IssTotUSD");
-  const feeTotalBtc = row.FeeTotNtv === undefined ? undefined : parseNumericString(row.FeeTotNtv, "FeeTotNtv");
-  if (marketCapUsd <= 0) throw new Error("Coin Metrics BTC market cap must be positive");
-  if (mvrv <= 0) throw new Error("Coin Metrics BTC MVRV must be positive");
-  if (priceUsd <= 0) throw new Error("Coin Metrics BTC price must be positive");
-  if (issuanceUsd <= 0) throw new Error("Coin Metrics BTC issuance USD must be positive");
-  if (feeTotalBtc !== undefined && feeTotalBtc < 0) throw new Error("Coin Metrics BTC fees must be non-negative");
-
-  const parsed = {
-    date,
-    unixTs,
-    marketCapUsd,
-    mvrv,
-    realizedCapUsd: marketCapUsd / mvrv,
-    priceUsd,
-    issuanceUsd,
-  };
-  return feeTotalBtc === undefined ? parsed : { ...parsed, feeTotalBtc };
 }
 
 function populationStandardDeviation(values: number[]): number {
@@ -191,14 +106,19 @@ function average(values: number[]): number {
   return values.reduce((sum, value) => sum + value, 0) / values.length;
 }
 
-function trailingAverage(rows: ParsedMvrvHistoryRow[], index: number, field: "priceUsd" | "issuanceUsd", period: number): number {
+function trailingAverage(
+  rows: CoinMetricsDailyHistoryRow[],
+  index: number,
+  field: "priceUsd" | "issuanceUsd",
+  period: number,
+): number {
   const start = Math.max(0, index - period + 1);
   return average(rows.slice(start, index + 1).map((row) => row[field]));
 }
 
 function buildRiskComponents(
-  row: ParsedMvrvHistoryRow,
-  rows: ParsedMvrvHistoryRow[],
+  row: CoinMetricsDailyHistoryRow,
+  rows: CoinMetricsDailyHistoryRow[],
   index: number,
   mvrvZScore: number,
 ): BitcoinRiskComponents {
@@ -280,29 +200,16 @@ export function parseAlternativeMeFearGreed(payload: AlternativeMeFearGreedRespo
   };
 }
 
-export function parseCoinMetricsMvrvHistory(
-  payload: CoinMetricsMvrvHistoryResponse,
-  fetchedAt = new Date().toISOString(),
-): BitcoinRisk {
-  if (!Array.isArray(payload.data)) {
-    throw new Error("Coin Metrics BTC MVRV history response missing data array");
-  }
+export function parseCoinMetricsMvrvHistory(payload: { data?: unknown }, fetchedAt = new Date().toISOString()): BitcoinRisk {
+  return buildBitcoinRisk(parseCoinMetricsDailyHistory(payload), fetchedAt);
+}
 
-  const rows = payload.data
-    .map((row) => row as CoinMetricsMvrvHistoryRow)
-    .filter(hasRequiredCoinMetricsFields)
-    .map((row) => parseHistoryRow(row))
-    .sort((a, b) => a.unixTs - b.unixTs);
-
-  if (rows.length < 2) {
-    throw new Error("Coin Metrics BTC MVRV history response has too few usable rows");
-  }
-
+function buildBitcoinRisk(rows: CoinMetricsDailyHistoryRow[], fetchedAt: string): BitcoinRisk {
   const latest = rows[rows.length - 1]!;
   const marketCapStdDev = populationStandardDeviation(rows.map((row) => row.marketCapUsd));
   const history: BitcoinRiskHistoryPoint[] = rows.map((row, index) => {
     const mvrvZScore = assertFiniteNumber(
-      (row.marketCapUsd - row.realizedCapUsd) / marketCapStdDev,
+      (row.marketCapUsd - row.marketCapUsd / row.mvrv) / marketCapStdDev,
       "derived historical MVRV Z-Score",
     );
     const components = buildRiskComponents(row, rows, index, mvrvZScore);
@@ -361,15 +268,7 @@ export async function getBitcoinRisk(): Promise<BitcoinRisk> {
   const utcDay = currentUtcDay();
   if (bitcoinRiskCache?.utcDay === utcDay) return bitcoinRiskCache.value;
 
-  const response = await fetch(COIN_METRICS_MVRV_HISTORY_URL, {
-    headers: { "user-agent": "bitcoin-card-data/0.1" },
-  });
-  if (!response.ok) {
-    throw new Error(`HTTP ${response.status} from ${COIN_METRICS_MVRV_HISTORY_URL}`);
-  }
-
-  const payload = (await response.json()) as CoinMetricsMvrvHistoryResponse;
-  const value = parseCoinMetricsMvrvHistory(payload);
+  const value = buildBitcoinRisk(await getCoinMetricsDailyHistory(), new Date().toISOString());
   const sentiment = await getBitcoinSentiment();
   const valueWithSentiment: BitcoinRisk = sentiment
     ? { ...value, sentiment, sentimentStatus: "available" }

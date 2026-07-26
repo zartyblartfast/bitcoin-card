@@ -1,6 +1,6 @@
 import { getBitcoinRisk } from "./getBitcoinRisk.js";
 import { getMempoolFees } from "./getMempoolFees.js";
-import { getMeanReversionIndex } from "./getMeanReversionIndex.js";
+import { getCheckonchainMeanReversionComparison } from "./getMeanReversionIndex.js";
 import { getNetworkSummary } from "./getNetworkSummary.js";
 import type { DcaMeanReversionZone, DcaMetrics } from "./types.js";
 
@@ -24,7 +24,7 @@ export async function getDcaMetrics(): Promise<DcaMetrics> {
   const [networkSummary, mempoolFees, meanReversion, bitcoinRisk] = await Promise.all([
     getNetworkSummary(),
     getMempoolFees(),
-    getMeanReversionIndex(),
+    getCheckonchainMeanReversionComparison(),
     getBitcoinRisk(),
   ]);
 

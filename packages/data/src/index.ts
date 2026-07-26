@@ -13,6 +13,19 @@ export {
   riskBandFromMvrvZScore,
   riskScoreFromMvrvZScore,
 } from "./getBitcoinRisk.js";
+export {
+  COIN_METRICS_DAILY_HISTORY_URL,
+  getCoinMetricsDailyHistory,
+  parseCoinMetricsDailyHistory,
+} from "./coinMetricsDailyHistory.js";
+export {
+  calculateIndependentMeanReversionIndex,
+  getIndependentMeanReversionIndex,
+} from "./getIndependentMeanReversionIndex.js";
+export { compareIndependentMeanReversionIndexes } from "./compareMeanReversionIndexes.js";
 export { getUnminedSupply } from "./getUnminedSupply.js";
-export { getMeanReversionIndex, parseCheckonchainMeanReversionHtml } from "./getMeanReversionIndex.js";
+export {
+  getCheckonchainMeanReversionComparison,
+  parseCheckonchainMeanReversionComparisonHtml,
+} from "./getMeanReversionIndex.js";
 export { computeUnminedSupply, computeCurrentSupply } from "./derive/unmined.js";

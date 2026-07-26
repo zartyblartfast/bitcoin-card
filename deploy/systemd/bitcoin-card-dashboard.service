@@ -1,0 +1,22 @@
+[Unit]
+Description=Bitcoin Card local HTTP API
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/root/bitcoin-card/examples/bitcoin-card-dashboard
+EnvironmentFile=-/etc/bitcoin-card-dashboard.env
+Environment=PORT=8787
+ExecStart=/root/.hermes/node/bin/node /root/bitcoin-card/examples/bitcoin-card-dashboard/server.mjs
+Restart=on-failure
+RestartSec=5
+TimeoutStartSec=45
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectHome=read-only
+ReadWritePaths=/root/bitcoin-card
+
+[Install]
+WantedBy=multi-user.target

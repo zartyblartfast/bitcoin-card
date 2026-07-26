@@ -39,6 +39,7 @@ function coinMetricsMvrvFixture() {
         CapMVRVCur: "1.0",
         PriceUSD: "100",
         IssTotUSD: "100",
+        SplyCur: "20",
         FeeTotNtv: "1",
       },
       {
@@ -48,6 +49,7 @@ function coinMetricsMvrvFixture() {
         CapMVRVCur: "1.0",
         PriceUSD: "150",
         IssTotUSD: "200",
+        SplyCur: "20",
         FeeTotNtv: "2",
       },
       {
@@ -57,6 +59,7 @@ function coinMetricsMvrvFixture() {
         CapMVRVCur: "1.15",
         PriceUSD: "300",
         IssTotUSD: "400",
+        SplyCur: "20",
         FeeTotNtv: "4",
       },
     ],

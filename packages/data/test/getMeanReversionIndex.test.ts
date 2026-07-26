@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { getMeanReversionIndex } from "../src/getMeanReversionIndex.js";
+import { getCheckonchainMeanReversionComparison } from "../src/getMeanReversionIndex.js";
 
 const originalFetch = globalThis.fetch;
 
@@ -34,7 +34,7 @@ function makeCheckonchainFixture(days = 1410): string {
   return `<html><body><script>Plotly.newPlot("chart", ${JSON.stringify(traces)}, {});</script></body></html>`;
 }
 
-describe("getMeanReversionIndex", () => {
+describe("getCheckonchainMeanReversionComparison", () => {
   beforeEach(() => {
     globalThis.fetch = vi.fn();
   });
@@ -48,7 +48,7 @@ describe("getMeanReversionIndex", () => {
       new Response(makeCheckonchainFixture(), { status: 200 }),
     );
 
-    const result = await getMeanReversionIndex();
+    const result = await getCheckonchainMeanReversionComparison();
 
     expect(result.source.full).toMatch(/Checkonchain/);
     expect(result.source.sourceQuality).toBe("public-chart-scrape");

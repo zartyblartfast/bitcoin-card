@@ -177,6 +177,47 @@ export type BitcoinRiskBand =
 export type BitcoinRiskSourceQuality = "community-api-derived";
 export type BitcoinSentimentSourceQuality = "free-api-attribution-required";
 
+export interface CoinMetricsDailyHistoryRow {
+  date: string;
+  unixTs: number;
+  priceUsd: number;
+  marketCapUsd: number;
+  mvrv: number;
+  supplyBtc: number;
+  issuanceUsd: number;
+  feeTotalBtc?: number;
+}
+
+export interface IndependentBmriLitePoint {
+  date: string;
+  price: number;
+  realizedPrice: number;
+  dma200: number | null;
+  wma200: number | null;
+  components: {
+    dma200Percentile: number | null;
+    wma200Percentile: number | null;
+    realizedPricePercentile: number | null;
+  };
+  liteIndex: number;
+  contributingComponents: number;
+}
+
+export interface IndependentMeanReversionIndex {
+  source: {
+    name: "Coin Metrics Community API";
+    url: string;
+    sourceQuality: "community-api-derived";
+  };
+  methodology: string;
+  limitations: string;
+  dataDate: string;
+  historyStartDate: string;
+  historyLength: number;
+  fetchedAt: string;
+  history: IndependentBmriLitePoint[];
+}
+
 export interface BitcoinRiskComponent {
   value: number;
   score: number;

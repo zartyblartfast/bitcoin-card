@@ -1,0 +1,8 @@
+[Unit]
+Description=Bitcoin Card readiness watchdog
+After=network-online.target bitcoin-card-dashboard.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/curl --fail --silent --show-error --max-time 30 http://127.0.0.1:8787/ready

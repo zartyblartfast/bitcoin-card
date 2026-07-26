@@ -5,7 +5,7 @@ Bitcoin Card exposes trustworthy Bitcoin metrics through two integration surface
 1. MCP tools, for AI assistants and agent apps.
 2. Local HTTP endpoints, used by the example dashboard and suitable for simple app integration.
 
-There is no hosted public API in v0.1.x. Apps should either run the MCP package with `npx bitcoin-info-mcp` or run the example dashboard server locally.
+There is no hosted public API in v0.1.x. Apps should either run the MCP package with `npx bitcoin-card-mcp` or run the example dashboard server locally.
 
 ## Option 1: MCP integration
 
@@ -16,7 +16,7 @@ Install the MCP server in your app or assistant config:
   "mcpServers": {
     "bitcoin-info": {
       "command": "npx",
-      "args": ["-y", "bitcoin-info-mcp"]
+      "args": ["-y", "bitcoin-card-mcp"]
     }
   }
 }
@@ -119,12 +119,34 @@ Includes:
 
 Use this endpoint for risk cards, component charts, and visual sanity-checking against BMRI.
 
-### `GET /api/bmri-comparison`
+### `GET /api/bmri-lite`
 
-Returns the Bitcoin Mean Reversion Index payload:
+Returns compact, independently derived BMRI-lite metadata and the latest daily point:
 
 ```bash
-curl http://127.0.0.1:8787/api/bmri-comparison
+curl http://127.0.0.1:8787/api/bmri-lite
+```
+
+This endpoint uses only the `@bitcoin-card/data` Coin Metrics Community API implementation. It does not request or fall back to Checkonchain. It returns `source`, `methodology`, `limitations`, `dataDate`, `historyStartDate`, `historyLength`, `fetchedAt`, and `latest`; it deliberately omits the large daily history payload.
+
+The server makes at most two bounded upstream attempts per refresh and retains only a validated five-minute in-process response. If current primary data is unavailable, stale, structurally invalid, or inconsistent, it returns HTTP `503` rather than stale or invented data.
+
+### `GET /api/bmri-lite/history`
+
+Returns the same independent metadata plus the complete daily `history` payload:
+
+```bash
+curl http://127.0.0.1:8787/api/bmri-lite/history
+```
+
+This response shares the validated in-process result with `/api/bmri-lite` and is HTTP-cacheable for five minutes. Use it only when daily history is required; use the compact endpoint for ordinary latest-value reads.
+
+### `GET /api/bmri-full-comparison`
+
+Returns an optional research comparison between Checkonchain’s scraped Full BMRI and a locally reconstructed lite approximation:
+
+```bash
+curl http://127.0.0.1:8787/api/bmri-full-comparison
 ```
 
 Includes:
@@ -138,7 +160,7 @@ Includes:
 - `history`: Full/lite comparison history.
 - `source.note`: Caveat that Full BMRI is parsed from public chart data, not an official API.
 
-Use this endpoint for BMRI-specific charts, diagnostics, or methodology screens.
+Use this optional comparison endpoint for BMRI-specific research, diagnostics, or methodology screens. It is not the independent production signal; use `/api/bmri-lite` or `/api/bmri-lite/history` for that source.
 
 ## Response field reference
 
@@ -354,4 +376,4 @@ For most external apps:
 1. Start with MCP `get_dca_metrics` if your app can use MCP.
 2. Use MCP `get_bitcoin_risk` directly for a small risk card; show `sentiment` separately if present, not as part of the valuation risk score.
 3. Otherwise run the local HTTP server and call `/api/summary`.
-4. Call `/api/bmri-comparison` only when you need BMRI-specific data or history.
+4. Call `/api/bmri-full-comparison` only for optional Full-versus-lite research or methodology comparison.

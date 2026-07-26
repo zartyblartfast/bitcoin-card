@@ -1,0 +1,11 @@
+[Unit]
+Description=Run Bitcoin Card readiness watchdog every six hours
+
+[Timer]
+OnBootSec=10m
+OnUnitActiveSec=6h
+Persistent=true
+Unit=bitcoin-card-dashboard-ready.service
+
+[Install]
+WantedBy=timers.target

@@ -1,9 +1,10 @@
 import { spawn } from "node:child_process";
 
-const PORT = 8791;
+const PORT = 8796;
+const preload = new URL("./test-bmri-lite-upstream-failure-preload.mjs", import.meta.url).pathname;
 const child = spawn(process.execPath, ["server.mjs"], {
   cwd: new URL(".", import.meta.url),
-  env: { ...process.env, PORT: String(PORT) },
+  env: { ...process.env, PORT: String(PORT), NODE_OPTIONS: `--import=${preload}` },
   stdio: ["ignore", "pipe", "pipe"],
 });
 
@@ -25,12 +26,11 @@ async function waitForServer() {
 
 try {
   await waitForServer();
-  const res = await fetch(`http://127.0.0.1:${PORT}/api/bmri-full-comparison`);
-  if (!res.ok) throw new Error(`/api/bmri-full-comparison returned ${res.status}`);
-  const data = await res.json();
-  if (!data.latest || typeof data.latest.fullIndex !== "number") throw new Error("missing latest.fullIndex");
-  if (!Array.isArray(data.history) || data.history.length < 3000) throw new Error(`missing long history: ${data.history?.length}`);
-  console.log(JSON.stringify({ latest: data.latest, history: data.history.length }, null, 2));
+  const response = await fetch(`http://127.0.0.1:${PORT}/api/bmri-lite`);
+  if (response.status !== 503) throw new Error(`/api/bmri-lite returned ${response.status}, expected 503`);
+  const body = await response.json();
+  if (!/unavailable, stale, or invalid/i.test(body.error)) throw new Error(`unexpected error: ${body.error}`);
+  console.log(JSON.stringify({ status: response.status, error: body.error }, null, 2));
 } finally {
   child.kill();
 }
