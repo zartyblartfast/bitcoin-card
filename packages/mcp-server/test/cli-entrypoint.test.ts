@@ -11,6 +11,6 @@ describe("CLI entrypoint", () => {
     });
 
     expect(stderr).toBe("");
-    expect(stdout).toBe("PASS: bitcoin-card-mcp@0.1.5 answered initialize.\n");
+    expect(stdout).toBe("PASS: bitcoin-card-mcp@0.1.6 answered initialize.\n");
   });
 });

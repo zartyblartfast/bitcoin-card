@@ -1,6 +1,6 @@
 {
   "name": "bitcoin-card-mcp",
-  "version": "0.1.5",
+  "version": "0.1.6",
   "description": "MCP server exposing trustworthy Bitcoin data to AI coding assistants.",
   "type": "module",
   "bin": {
