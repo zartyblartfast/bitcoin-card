@@ -1,0 +1,9 @@
+[Unit]
+Description=Send Telegram alert for failed Bitcoin Card watchdog (%i)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+EnvironmentFile=/etc/bitcoin-card-dashboard-alert.env
+ExecStart=/usr/bin/python3 /root/bitcoin-card/deploy/scripts/bitcoin-card-ready-alert.py --unit %i

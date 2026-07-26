@@ -2,6 +2,7 @@
 Description=Bitcoin Card readiness watchdog
 After=network-online.target bitcoin-card-dashboard.service
 Wants=network-online.target
+OnFailure=bitcoin-card-dashboard-ready-alert@%n.service
 
 [Service]
 Type=oneshot

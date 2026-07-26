@@ -1,0 +1,10 @@
+[Unit]
+Description=Send Bitcoin Card daily snapshot at 09:00 UK time
+
+[Timer]
+OnCalendar=*-*-* 09:00:00 Europe/London
+Persistent=true
+Unit=bitcoin-card-daily-summary.service
+
+[Install]
+WantedBy=timers.target

@@ -1,0 +1,9 @@
+[Unit]
+Description=Send daily Bitcoin Card API snapshot to Telegram
+After=network-online.target bitcoin-card-dashboard.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+EnvironmentFile=/etc/bitcoin-card-dashboard-alert.env
+ExecStart=/usr/bin/python3 /root/bitcoin-card/deploy/scripts/bitcoin-card-daily-summary.py
