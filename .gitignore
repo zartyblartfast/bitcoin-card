@@ -9,3 +9,10 @@ coverage/
 .vscode/
 .idea/
 *.tsbuildinfo
+
+# Local agent plans, evidence, and QA artifacts
+.hermes/
+
+# Generated MCP release artifacts (not source-controlled)
+/packages/mcp-server/*.tgz
+/packages/mcp-server/package-lock.json
