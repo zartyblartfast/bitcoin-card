@@ -1,10 +1,16 @@
+import { execFile } from "node:child_process";
+import { promisify } from "node:util";
 import { describe, expect, it } from "vitest";
-import { readFileSync } from "node:fs";
+
+const execFileAsync = promisify(execFile);
 
 describe("CLI entrypoint", () => {
-  it("starts the stdio server when the package bin is executed", () => {
-    const source = readFileSync("src/index.ts", "utf8");
+  it("answers an MCP initialize request through the built package CLI", async () => {
+    const { stdout, stderr } = await execFileAsync(process.execPath, ["scripts/smoke-cli.mjs"], {
+      timeout: 10_000,
+    });
 
-    expect(source).toMatch(/runStdio\s*\(\s*\)/);
+    expect(stderr).toBe("");
+    expect(stdout).toBe("PASS: bitcoin-card-mcp@0.1.5 answered initialize.\n");
   });
 });

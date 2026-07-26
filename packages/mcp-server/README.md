@@ -1,7 +1,7 @@
-# bitcoin-info-mcp
+# bitcoin-card-mcp
 
 [![MIT licensed](https://img.shields.io/badge/license-MIT-blue.svg)](./LICENSE)
-[![npm version](https://img.shields.io/npm/v/bitcoin-info-mcp.svg)](https://www.npmjs.com/package/bitcoin-info-mcp)
+[![npm version](https://img.shields.io/npm/v/bitcoin-card-mcp.svg)](https://www.npmjs.com/package/bitcoin-card-mcp)
 
 Trustworthy Bitcoin data for AI coding assistants, via the [Model Context Protocol](https://modelcontextprotocol.io).
 
@@ -16,7 +16,7 @@ For **Claude Desktop** - add to `%APPDATA%\Claude\claude_desktop_config.json`:
   "mcpServers": {
     "bitcoin-info": {
       "command": "npx",
-      "args": ["-y", "bitcoin-info-mcp"]
+      "args": ["-y", "bitcoin-card-mcp"]
     }
   }
 }
@@ -28,7 +28,7 @@ For **Claude Code**, **Cursor**, **Cline**, **Continue**, **Zed**, **Hermes Agen
 mcp_servers:
   bitcoin-info:
     command: "npx"
-    args: ["-y", "bitcoin-info-mcp"]
+    args: ["-y", "bitcoin-card-mcp"]
     timeout: 120
 ```
 

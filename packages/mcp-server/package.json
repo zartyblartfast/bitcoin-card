@@ -1,10 +1,10 @@
 {
-  "name": "bitcoin-info-mcp",
-  "version": "0.1.4",
+  "name": "bitcoin-card-mcp",
+  "version": "0.1.5",
   "description": "MCP server exposing trustworthy Bitcoin data to AI coding assistants.",
   "type": "module",
   "bin": {
-    "bitcoin-info-mcp": "./dist/index.js"
+    "bitcoin-card-mcp": "dist/cli.js"
   },
   "main": "./dist/index.js",
   "files": [
@@ -13,9 +13,10 @@
     "LICENSE"
   ],
   "scripts": {
-    "build": "rm -rf dist && esbuild --bundle src/index.ts --platform=node --target=node22 --format=esm --outfile=dist/index.js --banner:js=\"#!/usr/bin/env node\" --external:@modelcontextprotocol --external:zod",
-    "test": "vitest run",
+    "build": "rm -rf dist && esbuild --bundle src/index.ts --platform=node --target=node22 --format=esm --outfile=dist/index.js --external:@modelcontextprotocol --external:zod && esbuild --bundle src/cli.ts --platform=node --target=node22 --format=esm --outfile=dist/cli.js --banner:js=\"#!/usr/bin/env node\" --external:@modelcontextprotocol --external:zod",
+    "test": "npm run build && vitest run",
     "test:watch": "vitest",
+    "smoke:stdio": "npm run build && node scripts/smoke-cli.mjs",
     "lint": "echo 'lint: stub'",
     "typecheck": "tsc --noEmit",
     "clean": "rm -rf dist .turbo"
