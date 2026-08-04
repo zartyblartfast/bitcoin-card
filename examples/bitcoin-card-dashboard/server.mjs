@@ -18,8 +18,16 @@ const FEE_HISTORY_RANGES = new Set(["24h", "3d", "1w", "1m", "3m", "6m", "1y", "
 const DCA_CADENCES = new Set(["daily", "weekly", "monthly"]);
 let independentBmriLiteCache = null;
 
+function assertIndependentBmriLiteFresh(value) {
+  const dataTimestamp = Date.parse(`${value.dataDate}T00:00:00.000Z`);
+  if (!Number.isFinite(dataTimestamp) || Date.now() - dataTimestamp > 3 * 24 * 60 * 60 * 1000) {
+    throw new Error(`Independent BMRI-lite history is stale: latest data is ${value.dataDate}`);
+  }
+}
+
 async function getIndependentBmriLite() {
   if (independentBmriLiteCache && Date.now() - independentBmriLiteCache.cachedAt < INDEPENDENT_BMRI_CACHE_MS) {
+    assertIndependentBmriLiteFresh(independentBmriLiteCache.value);
     return independentBmriLiteCache.value;
   }
 
@@ -27,6 +35,7 @@ async function getIndependentBmriLite() {
   for (let attempt = 0; attempt < 2; attempt += 1) {
     try {
       const value = await getIndependentMeanReversionIndex();
+      assertIndependentBmriLiteFresh(value);
       const latest = value.history.at(-1);
       if (!latest || latest.date !== value.dataDate || value.history.length !== value.historyLength) {
         throw new Error("Independent BMRI-lite response failed endpoint consistency validation");
@@ -90,7 +99,7 @@ async function source(name, fn) {
 
 function independentBmriLiteMetadata(value) {
   const { history, ...metadata } = value;
-  return { ...metadata, latest: history.at(-1) };
+  return { generatedAt: new Date().toISOString(), ...metadata, latest: history.at(-1) };
 }
 
 function computeCurrentSupply(height) {
@@ -137,6 +146,7 @@ async function getSummary() {
     generatedAt: new Date().toISOString(),
     price: {
       currency: "USD",
+      sourceQuality: "cross-source-spot",
       value: price,
       agreement: priceValues.length === 2 && priceSpread <= 100 ? "verified" : priceValues.length ? "single-source" : "unavailable",
       spread: priceSpread,

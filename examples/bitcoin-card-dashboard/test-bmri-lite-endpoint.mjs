@@ -24,6 +24,7 @@ async function waitForServer() {
 }
 
 function assertIndependentMetadata(data) {
+  if (typeof data.generatedAt !== "string") throw new Error("missing API response generatedAt");
   if (data.source?.name !== "Coin Metrics Community API") throw new Error(`wrong source: ${data.source?.name}`);
   if (data.source?.sourceQuality !== "community-api-derived") throw new Error(`wrong source quality: ${data.source?.sourceQuality}`);
   if (typeof data.dataDate !== "string" || typeof data.fetchedAt !== "string") throw new Error("missing data freshness metadata");

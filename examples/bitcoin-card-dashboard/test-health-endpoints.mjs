@@ -21,6 +21,10 @@ async function waitForServer() {
 
 try {
   await waitForServer();
+  const summary = await fetch(`http://127.0.0.1:${PORT}/api/summary`);
+  const summaryBody = await summary.json();
+  if (!summary.ok || typeof summaryBody.generatedAt !== "string" || summaryBody.price?.sourceQuality !== "cross-source-spot") throw new Error("invalid fresh spot summary contract");
+
   const health = await fetch(`http://127.0.0.1:${PORT}/health`);
   if (!health.ok) throw new Error(`/health returned ${health.status}`);
   const healthBody = await health.json();
